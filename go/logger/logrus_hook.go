@@ -1,6 +1,6 @@
 // from github.com/kenjones-cisco/logrus-kafka-hook/hook.go
 
-package logkafka
+package logger
 
 import (
 	"errors"
@@ -11,8 +11,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// Hook represents a logrus hook for Kafka
-type Hook struct {
+// Object represents a logrus hook for Kafka
+type LogrusHook struct {
 	formatter logrus.Formatter
 	levels    []logrus.Level
 	producer  sarama.AsyncProducer
@@ -25,36 +25,35 @@ type Hook struct {
 //
 //		Formatter: *logrus.TextFormatter*
 //		Levels: *logrus.AllLevels*
-//		Topic: *"logs"*
 //
-func New() *Hook {
-	return &Hook{
+
+func NewLogrusHook() *LogrusHook {
+	return &LogrusHook{
 		formatter: new(logrus.TextFormatter),
 		levels:    logrus.AllLevels,
-		topic:     "logs",
 	}
 }
 
 // WithFormatter adds a formatter to the created Hook
-func (h *Hook) WithFormatter(formatter logrus.Formatter) *Hook {
+func (h *LogrusHook) WithFormatter(formatter logrus.Formatter) *LogrusHook {
 	h.formatter = formatter
 	return h
 }
 
 // WithLevels adds levels to the created Hook
-func (h *Hook) WithLevels(levels []logrus.Level) *Hook {
+func (h *LogrusHook) WithLevels(levels []logrus.Level) *LogrusHook {
 	h.levels = levels
 	return h
 }
 
 // WithProducer adds a producer to the created Hook
-func (h *Hook) WithProducer(producer sarama.AsyncProducer) *Hook {
+func (h *LogrusHook) WithProducer(producer sarama.AsyncProducer) *LogrusHook {
 	h.producer = producer
 
 	if producer != nil {
 		go func() {
 			for err := range producer.Errors() {
-				fmt.Fprintln(os.Stderr, "[logkafka:ERROR]", err)
+				fmt.Fprintln(os.Stderr, "[ERROR]", err)
 			}
 		}()
 	}
@@ -63,18 +62,26 @@ func (h *Hook) WithProducer(producer sarama.AsyncProducer) *Hook {
 }
 
 // WithTopic adds a topic to the created Hook
-func (h *Hook) WithTopic(topic string) *Hook {
+func (h *LogrusHook) WithTopic(topic string) *LogrusHook {
 	h.topic = topic
 	return h
 }
 
+/*
+The following two methods meet the logrus Hook interface contract:
+type Hook interface {
+	Levels() []Level
+	Fire(*Entry) error
+}
+*/
+
 // Levels returns all log levels that are enabled for writing messages to Kafka
-func (h *Hook) Levels() []logrus.Level {
+func (h *LogrusHook) Levels() []logrus.Level {
 	return h.levels
 }
 
 // Fire writes the entry as a message on Kafka
-func (h *Hook) Fire(entry *logrus.Entry) error {
+func (h *LogrusHook) Fire(entry *logrus.Entry) error {
 	var key sarama.Encoder
 
 	if t, err := entry.Time.MarshalBinary(); err == nil {

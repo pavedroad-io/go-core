@@ -45,14 +45,14 @@ func newZapLogger(config Configuration) (Logger, error) {
 	cores := []zapcore.Core{}
 
 	if config.EnableConsole {
-		level := getZapLevel(config.ConsoleLevel)
+		level := getZapLevel(config.LogLevel)
 		writer := zapcore.Lock(os.Stdout)
 		core := zapcore.NewCore(getEncoder(config.ConsoleJSONFormat), writer, level)
 		cores = append(cores, core)
 	}
 
 	if config.EnableFile {
-		level := getZapLevel(config.FileLevel)
+		level := getZapLevel(config.LogLevel)
 		writer := zapcore.AddSync(&lumberjack.Logger{
 			Filename: config.FileLocation,
 			MaxSize:  100,
@@ -65,6 +65,8 @@ func newZapLogger(config Configuration) (Logger, error) {
 
 	combinedCore := zapcore.NewTee(cores...)
 
+	// AddCallerSkip skips 2 number of callers, this is important else the file that gets
+	// logged will always be the wrapped file. In our case zap.go
 	logger := zap.New(combinedCore,
 		zap.AddCallerSkip(2),
 		zap.AddCaller(),
@@ -73,6 +75,18 @@ func newZapLogger(config Configuration) (Logger, error) {
 	return &zapLogger{
 		sugaredLogger: logger,
 	}, nil
+}
+
+func (l *zapLogger) Print(args ...interface{}) {
+	l.sugaredLogger.Info(args...)
+}
+
+func (l *zapLogger) Printf(format string, args ...interface{}) {
+	l.sugaredLogger.Infof(format, args...)
+}
+
+func (l *zapLogger) Println(args ...interface{}) {
+	l.sugaredLogger.Info(args...)
 }
 
 func (l *zapLogger) Debugf(format string, args ...interface{}) {

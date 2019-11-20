@@ -4,6 +4,7 @@ package logger
 
 import "errors"
 
+// A global variable so that log functions can be directly accessed
 var log Logger
 
 //Fields Type to pass when we want to call WithFields for structured logging
@@ -23,8 +24,8 @@ const (
 )
 
 const (
-	//InstanceZapLogger will be used to create Zap instance for the logger
 	InstanceZapLogger int = iota
+	InstanceLogrusLogger
 )
 
 var (
@@ -33,6 +34,12 @@ var (
 
 //Logger is our contract for the logger
 type Logger interface {
+	Print(args ...interface{})
+
+	Printf(format string, args ...interface{})
+
+	Println(args ...interface{})
+
 	Debugf(format string, args ...interface{})
 
 	Infof(format string, args ...interface{})
@@ -48,29 +55,54 @@ type Logger interface {
 	WithFields(keyValues Fields) Logger
 }
 
-// Configuration stores the config for the Logger
+// Configuration stores the config for the logger
 // For some loggers there can only be one level across writers, for such the level of Console is picked by default
 type Configuration struct {
+	LogLevel          string
+	EnableKafka       bool
+	KafkaJSONFormat   bool
+	KafkaProducerCfg  ProducerConfiguration
 	EnableConsole     bool
 	ConsoleJSONFormat bool
-	ConsoleLevel      string
 	EnableFile        bool
 	FileJSONFormat    bool
-	FileLevel         string
 	FileLocation      string
 }
 
-//NewLogger returns an instance of Logger
-func NewLogger(config Configuration, loggerInstance int) error {
-	if loggerInstance == InstanceZapLogger {
+//NewLogger returns an instance of logger
+func NewLogger(config Configuration, loggerInstance int) (Logger, error) {
+	switch loggerInstance {
+	case InstanceZapLogger:
 		logger, err := newZapLogger(config)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		log = logger
-		return nil
+		return logger, nil
+
+	case InstanceLogrusLogger:
+		logger, err := newLogrusLogger(config)
+		if err != nil {
+			return nil, err
+		}
+		log = logger
+		return logger, nil
+
+	default:
+		return nil, errInvalidLoggerInstance
 	}
-	return errInvalidLoggerInstance
+}
+
+func Print(args ...interface{}) {
+	log.Print(args...)
+}
+
+func Printf(format string, args ...interface{}) {
+	log.Printf(format, args...)
+}
+
+func Println(args ...interface{}) {
+	log.Println(args...)
 }
 
 func Debugf(format string, args ...interface{}) {

@@ -3,6 +3,7 @@
 package logger
 
 import (
+	"fmt"
 	"io"
 	"os"
 
@@ -18,23 +19,18 @@ type logrusLogger struct {
 	logger *logrus.Logger
 }
 
-func getFormatter(isJSON bool) logrus.Formatter {
+func getFormatter(isJSON bool, truncate bool) logrus.Formatter {
 	if isJSON {
 		return &logrus.JSONFormatter{}
 	}
 	return &logrus.TextFormatter{
 		FullTimestamp:          true,
-		DisableLevelTruncation: true,
+		DisableLevelTruncation: !truncate,
 	}
 }
 
 func newLogrusLogger(config Configuration) (Logger, error) {
-	logLevel := config.ConsoleLevel
-	if logLevel == "" {
-		logLevel = config.FileLevel
-	}
-
-	level, err := logrus.ParseLevel(logLevel)
+	level, err := logrus.ParseLevel(config.LogLevel)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +44,7 @@ func newLogrusLogger(config Configuration) (Logger, error) {
 	}
 	lLogger := &logrus.Logger{
 		Out:       stdOutHandler,
-		Formatter: getFormatter(config.ConsoleJSONFormat),
+		Formatter: getFormatter(config.ConsoleJSONFormat, false),
 		Hooks:     make(logrus.LevelHooks),
 		Level:     level,
 	}
@@ -58,13 +54,39 @@ func newLogrusLogger(config Configuration) (Logger, error) {
 	} else {
 		if config.EnableFile {
 			lLogger.SetOutput(fileHandler)
-			lLogger.SetFormatter(getFormatter(config.FileJSONFormat))
+			lLogger.SetFormatter(getFormatter(config.FileJSONFormat, true))
 		}
+	}
+
+	if config.EnableKafka {
+		// create an async producer
+		asyncproducer, err := NewAsyncProducer(config.KafkaProducerCfg)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "NewAsyncProducer failed", err.Error())
+		}
+
+		// create the Kafka hook
+		hook := NewLogrusHook().WithFormatter(getFormatter(config.KafkaJSONFormat, true)).WithProducer(asyncproducer).WithTopic(config.KafkaProducerCfg.Topic)
+
+		// add the hook
+		lLogger.Hooks.Add(hook)
 	}
 
 	return &logrusLogger{
 		logger: lLogger,
 	}, nil
+}
+
+func (l *logrusLogger) Print(args ...interface{}) {
+	l.logger.Print(args...)
+}
+
+func (l *logrusLogger) Printf(format string, args ...interface{}) {
+	l.logger.Printf(format, args...)
+}
+
+func (l *logrusLogger) Println(args ...interface{}) {
+	l.logger.Println(args...)
 }
 
 func (l *logrusLogger) Debugf(format string, args ...interface{}) {
@@ -92,37 +114,52 @@ func (l *logrusLogger) Panicf(format string, args ...interface{}) {
 }
 
 func (l *logrusLogger) WithFields(fields Fields) Logger {
+	l.logger.SetFormatter(getFormatter(false, true))
 	return &logrusLogEntry{
 		entry: l.logger.WithFields(convertToLogrusFields(fields)),
 	}
 }
 
+func (l *logrusLogEntry) Print(args ...interface{}) {
+	l.entry.Print(args...)
+}
+
+func (l *logrusLogEntry) Printf(format string, args ...interface{}) {
+	l.entry.Printf(format, args...)
+}
+
+func (l *logrusLogEntry) Println(args ...interface{}) {
+	l.entry.Println(args...)
+}
+
 func (l *logrusLogEntry) Debugf(format string, args ...interface{}) {
-	l.Debugf(format, args...)
+	l.entry.Debugf(format, args...)
 }
 
 func (l *logrusLogEntry) Infof(format string, args ...interface{}) {
-	l.Infof(format, args...)
+	l.entry.Infof(format, args...)
 }
 
 func (l *logrusLogEntry) Warnf(format string, args ...interface{}) {
-	l.Warnf(format, args...)
+	l.entry.Warnf(format, args...)
 }
 
 func (l *logrusLogEntry) Errorf(format string, args ...interface{}) {
-	l.Errorf(format, args...)
+	l.entry.Errorf(format, args...)
 }
 
 func (l *logrusLogEntry) Fatalf(format string, args ...interface{}) {
-	l.Fatalf(format, args...)
+	l.entry.Fatalf(format, args...)
 }
 
 func (l *logrusLogEntry) Panicf(format string, args ...interface{}) {
-	l.Fatalf(format, args...)
+	l.entry.Fatalf(format, args...)
 }
 
 func (l *logrusLogEntry) WithFields(fields Fields) Logger {
-	return l.WithFields(fields)
+	return &logrusLogEntry{
+		entry: l.entry.WithFields(convertToLogrusFields(fields)),
+	}
 }
 
 func convertToLogrusFields(fields Fields) logrus.Fields {
