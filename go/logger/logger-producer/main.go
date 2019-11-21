@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/Shopify/sarama"
-	"github.com/pavedroad-io/go-core/logger"
+	"github.com/pavedroad-io/core/go/logger"
 )
 
 // Create loggers for zap and logrus
