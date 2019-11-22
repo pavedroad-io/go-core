@@ -44,7 +44,7 @@ func main() {
 		newlog.Infof("Zap using Infof")
 		time.Sleep(time.Second)
 
-		jsonlog := logger.WithFields(logger.Fields{"key1": "value1"})
+		jsonlog := logger.WithCloudEvents()
 		jsonlog.Infof("Zap using Infof with fields")
 		time.Sleep(time.Second)
 	}
@@ -64,7 +64,7 @@ func main() {
 		newlog.Println("Logrus using Println")
 		time.Sleep(time.Second)
 
-		jsonlog := logger.WithFields(logger.Fields{"key1": "value1"})
+		jsonlog := logger.WithCloudEvents()
 		jsonlog.Debugf("Logrus using Debugf with fields (should not log)")
 		jsonlog.Infof("Logrus using Infof with fields")
 		jsonlog.Warnf("Logrus using Warnf with fields")

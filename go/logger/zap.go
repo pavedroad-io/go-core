@@ -122,3 +122,7 @@ func (l *zapLogger) WithFields(fields Fields) Logger {
 	newLogger := l.sugaredLogger.With(f...)
 	return &zapLogger{newLogger}
 }
+
+func (l *zapLogger) WithCloudEvents() Logger {
+	return l.WithFields(ceFields)
+}

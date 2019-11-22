@@ -3,10 +3,13 @@
 package logger
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
+	"time"
 
+	uuid "github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
 )
@@ -19,9 +22,38 @@ type logrusLogger struct {
 	logger *logrus.Logger
 }
 
+// cloudevents formatter
+type ceFormatter struct {
+	logrus.JSONFormatter
+}
+
+// override the Format method for cloudevents
+func (f *ceFormatter) Format(entry *logrus.Entry) ([]byte, error) {
+	msg, err := f.JSONFormatter.Format(entry)
+	if err != nil {
+		return nil, err
+	}
+	id, err := uuid.NewV4()
+	if err != nil {
+		return nil, err
+	}
+	parts := [][]byte{[]byte("{\"id\":\""), []byte(id.String()), []byte("\",")}
+	json := bytes.Join(parts, []byte(""))
+	return bytes.Replace(msg, []byte("{"), json, 1), nil
+}
+
 func getFormatter(isJSON bool, truncate bool) logrus.Formatter {
 	if isJSON {
-		return &logrus.JSONFormatter{}
+		return &ceFormatter{
+			logrus.JSONFormatter{
+				TimestampFormat: time.RFC3339,
+				FieldMap: logrus.FieldMap{
+					logrus.FieldKeyTime:  "time",
+					logrus.FieldKeyMsg:   "data",
+					logrus.FieldKeyLevel: "subject",
+				},
+			},
+		}
 	}
 	return &logrus.TextFormatter{
 		FullTimestamp:          true,
@@ -120,6 +152,12 @@ func (l *logrusLogger) WithFields(fields Fields) Logger {
 	}
 }
 
+func (l *logrusLogger) WithCloudEvents() Logger {
+	return &logrusLogEntry{
+		entry: l.logger.WithFields(convertToLogrusFields(ceFields)),
+	}
+}
+
 func (l *logrusLogEntry) Print(args ...interface{}) {
 	l.entry.Print(args...)
 }
@@ -159,6 +197,12 @@ func (l *logrusLogEntry) Panicf(format string, args ...interface{}) {
 func (l *logrusLogEntry) WithFields(fields Fields) Logger {
 	return &logrusLogEntry{
 		entry: l.entry.WithFields(convertToLogrusFields(fields)),
+	}
+}
+
+func (l *logrusLogEntry) WithCloudEvents() Logger {
+	return &logrusLogEntry{
+		entry: l.entry.WithFields(convertToLogrusFields(ceFields)),
 	}
 }
 

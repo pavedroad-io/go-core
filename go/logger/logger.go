@@ -10,6 +10,13 @@ var log Logger
 //Fields Type to pass when we want to call WithFields for structured logging
 type Fields map[string]interface{}
 
+//Fields for cloudevents
+var ceFields = Fields{
+	"source":      "http://github.com/pavedroad-io/core/go/logger",
+	"specversion": "1.0",
+	"type":        "io.pavedroad.cloudevents.log",
+}
+
 const (
 	//Debug has verbose message
 	Debug = "debug"
@@ -53,6 +60,8 @@ type Logger interface {
 	Panicf(format string, args ...interface{})
 
 	WithFields(keyValues Fields) Logger
+
+	WithCloudEvents() Logger
 }
 
 // Configuration stores the config for the logger
@@ -131,4 +140,8 @@ func Panicf(format string, args ...interface{}) {
 
 func WithFields(keyValues Fields) Logger {
 	return log.WithFields(keyValues)
+}
+
+func WithCloudEvents() Logger {
+	return log.WithCloudEvents()
 }
