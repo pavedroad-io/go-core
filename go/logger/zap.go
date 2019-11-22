@@ -88,9 +88,7 @@ func newZapLogger(config Configuration) (Logger, error) {
 		zaplogger := &zapLogger{
 			sugaredLogger: logger,
 		}
-		newlogger := zaplogger.WithFields(ceFields)
-
-		return newlogger, nil
+		return zaplogger.WithFields(ceFields), nil
 	}
 
 	return &zapLogger{

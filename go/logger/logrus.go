@@ -110,6 +110,13 @@ func newLogrusLogger(config Configuration) (Logger, error) {
 		lLogger.Hooks.Add(hook)
 	}
 
+	if config.EnableCloudEvents {
+		logruslogger := &logrusLogger{
+			logger: lLogger,
+		}
+		return logruslogger.WithFields(ceFields), nil
+	}
+
 	return &logrusLogger{
 		logger: lLogger,
 	}, nil
