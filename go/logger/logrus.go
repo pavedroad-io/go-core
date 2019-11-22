@@ -146,13 +146,14 @@ func (l *logrusLogger) Panicf(format string, args ...interface{}) {
 }
 
 func (l *logrusLogger) WithFields(fields Fields) Logger {
-	l.logger.SetFormatter(getFormatter(false, true))
 	return &logrusLogEntry{
 		entry: l.logger.WithFields(convertToLogrusFields(fields)),
 	}
 }
 
 func (l *logrusLogger) WithCloudEvents() Logger {
+	// Set default format to text (not JSON) with level truncatation
+	l.logger.SetFormatter(getFormatter(false, true))
 	return &logrusLogEntry{
 		entry: l.logger.WithFields(convertToLogrusFields(ceFields)),
 	}
