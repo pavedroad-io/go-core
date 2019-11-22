@@ -42,8 +42,16 @@ func (f *ceFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	return bytes.Replace(msg, []byte("{"), json, 1), nil
 }
 
-func getFormatter(isJSON bool, truncate bool) logrus.Formatter {
-	if isJSON {
+func getFormatter(format FormatType, truncate bool) logrus.Formatter {
+	switch format {
+	case TypeJSONFormat:
+		return &logrus.JSONFormatter{}
+	case TypeTextFormat:
+		return &logrus.TextFormatter{
+			FullTimestamp:          true,
+			DisableLevelTruncation: !truncate,
+		}
+	case TypeCEFormat:
 		return &ceFormatter{
 			logrus.JSONFormatter{
 				TimestampFormat: time.RFC3339,
@@ -54,10 +62,8 @@ func getFormatter(isJSON bool, truncate bool) logrus.Formatter {
 				},
 			},
 		}
-	}
-	return &logrus.TextFormatter{
-		FullTimestamp:          true,
-		DisableLevelTruncation: !truncate,
+	default:
+		return nil
 	}
 }
 
@@ -76,7 +82,7 @@ func newLogrusLogger(config Configuration) (Logger, error) {
 	}
 	lLogger := &logrus.Logger{
 		Out:       stdOutHandler,
-		Formatter: getFormatter(config.ConsoleJSONFormat, false),
+		Formatter: getFormatter(config.ConsoleFormat, config.ConsoleLevelTruncate),
 		Hooks:     make(logrus.LevelHooks),
 		Level:     level,
 	}
@@ -86,7 +92,7 @@ func newLogrusLogger(config Configuration) (Logger, error) {
 	} else {
 		if config.EnableFile {
 			lLogger.SetOutput(fileHandler)
-			lLogger.SetFormatter(getFormatter(config.FileJSONFormat, true))
+			lLogger.SetFormatter(getFormatter(config.FileFormat, config.FileLevelTruncate))
 		}
 	}
 
@@ -98,7 +104,7 @@ func newLogrusLogger(config Configuration) (Logger, error) {
 		}
 
 		// create the Kafka hook
-		hook := NewLogrusHook().WithFormatter(getFormatter(config.KafkaJSONFormat, true)).WithProducer(asyncproducer).WithTopic(config.KafkaProducerCfg.Topic)
+		hook := NewLogrusHook().WithFormatter(getFormatter(config.KafkaFormat, true)).WithProducer(asyncproducer).WithTopic(config.KafkaProducerCfg.Topic)
 
 		// add the hook
 		lLogger.Hooks.Add(hook)
@@ -151,14 +157,6 @@ func (l *logrusLogger) WithFields(fields Fields) Logger {
 	}
 }
 
-func (l *logrusLogger) WithCloudEvents() Logger {
-	// Set default format to text (not JSON) with level truncatation
-	l.logger.SetFormatter(getFormatter(false, true))
-	return &logrusLogEntry{
-		entry: l.logger.WithFields(convertToLogrusFields(ceFields)),
-	}
-}
-
 func (l *logrusLogEntry) Print(args ...interface{}) {
 	l.entry.Print(args...)
 }
@@ -198,12 +196,6 @@ func (l *logrusLogEntry) Panicf(format string, args ...interface{}) {
 func (l *logrusLogEntry) WithFields(fields Fields) Logger {
 	return &logrusLogEntry{
 		entry: l.entry.WithFields(convertToLogrusFields(fields)),
-	}
-}
-
-func (l *logrusLogEntry) WithCloudEvents() Logger {
-	return &logrusLogEntry{
-		entry: l.entry.WithFields(convertToLogrusFields(ceFields)),
 	}
 }
 

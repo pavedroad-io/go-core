@@ -15,9 +15,10 @@ import (
 
 func main() {
 	config := logger.Configuration{
-		LogLevel:        logger.Info,
-		EnableKafka:     true,
-		KafkaJSONFormat: true,
+		LogLevel:          logger.Info,
+		EnableCloudEvents: true,
+		EnableKafka:       true,
+		KafkaFormat:       logger.TypeCEFormat,
 		KafkaProducerCfg: logger.ProducerConfiguration{
 			Brokers:       []string{"localhost:9092"},
 			Topic:         "logs",
@@ -28,50 +29,41 @@ func main() {
 			FlushFreq:     500, // milliseconds
 			EnableTLS:     false,
 		},
-		EnableConsole:     true,
-		ConsoleJSONFormat: false,
-		EnableFile:        false,
-		FileJSONFormat:    true,
-		FileLocation:      "pavedroad.log",
+		EnableConsole:        true,
+		ConsoleFormat:        logger.TypeTextFormat,
+		ConsoleLevelTruncate: true,
+		EnableFile:           false,
+		FileFormat:           logger.TypeJSONFormat,
+		FileLevelTruncate:    false,
+		FileLocation:         "pavedroad.log",
 	}
 
 	// try a zap logger
 
-	newlog, err := logger.NewLogger(config, logger.InstanceZapLogger)
+	log, err := logger.NewLogger(config, logger.InstanceZapLogger)
 	if err != nil {
 		fmt.Printf("Could not instantiate zap logger %s", err.Error())
 	} else {
-		newlog.Infof("Zap using Infof")
-		time.Sleep(time.Second)
-
-		jsonlog := logger.WithCloudEvents()
-		jsonlog.Infof("Zap using Infof with fields")
+		log.Debugf("Zap using Debugf (should not appear)")
+		log.Infof("Zap using Infof")
+		log.Warnf("Zap using Warnf")
+		log.Errorf("Zap using Errorf")
 		time.Sleep(time.Second)
 	}
 
 	// try a logrus logger
 
-	newlog, err = logger.NewLogger(config, logger.InstanceLogrusLogger)
+	log, err = logger.NewLogger(config, logger.InstanceLogrusLogger)
 	if err != nil {
 		fmt.Printf("Could not instantiate logrus logger %s", err.Error())
 	} else {
-		newlog.Debugf("Logrus using Debugf (should not log)")
-		newlog.Infof("Logrus using Infof")
-		newlog.Warnf("Logrus using Warnf")
-		newlog.Errorf("Logrus using Errorf")
-		newlog.Print("Logrus using Print")
-		newlog.Printf("Logrus using Printf")
-		newlog.Println("Logrus using Println")
-		time.Sleep(time.Second)
-
-		jsonlog := logger.WithCloudEvents()
-		jsonlog.Debugf("Logrus using Debugf with fields (should not log)")
-		jsonlog.Infof("Logrus using Infof with fields")
-		jsonlog.Warnf("Logrus using Warnf with fields")
-		jsonlog.Errorf("Logrus using Errorf with fields")
-		jsonlog.Print("Logrus using Print with fields")
-		jsonlog.Printf("Logrus using Printf with fields")
-		jsonlog.Println("Logrus using Println with fields")
+		log.Debugf("Logrus using Debugf (should not appear)")
+		log.Infof("Logrus using Infof")
+		log.Warnf("Logrus using Warnf")
+		log.Errorf("Logrus using Errorf")
+		log.Print("Logrus using Print")
+		log.Printf("Logrus using Printf")
+		log.Println("Logrus using Println")
 		time.Sleep(time.Second)
 	}
 }

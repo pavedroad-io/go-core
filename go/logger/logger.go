@@ -35,6 +35,14 @@ const (
 	InstanceLogrusLogger
 )
 
+type FormatType int
+
+const (
+	TypeJSONFormat FormatType = iota
+	TypeTextFormat
+	TypeCEFormat
+)
+
 var (
 	errInvalidLoggerInstance = errors.New("Invalid logger instance")
 )
@@ -60,22 +68,23 @@ type Logger interface {
 	Panicf(format string, args ...interface{})
 
 	WithFields(keyValues Fields) Logger
-
-	WithCloudEvents() Logger
 }
 
 // Configuration stores the config for the logger
 // For some loggers there can only be one level across writers, for such the level of Console is picked by default
 type Configuration struct {
-	LogLevel          string
-	EnableKafka       bool
-	KafkaJSONFormat   bool
-	KafkaProducerCfg  ProducerConfiguration
-	EnableConsole     bool
-	ConsoleJSONFormat bool
-	EnableFile        bool
-	FileJSONFormat    bool
-	FileLocation      string
+	LogLevel             string
+	EnableCloudEvents    bool
+	EnableKafka          bool
+	KafkaFormat          FormatType
+	KafkaProducerCfg     ProducerConfiguration
+	EnableConsole        bool
+	ConsoleFormat        FormatType
+	ConsoleLevelTruncate bool
+	EnableFile           bool
+	FileFormat           FormatType
+	FileLevelTruncate    bool
+	FileLocation         string
 }
 
 //NewLogger returns an instance of logger
@@ -140,8 +149,4 @@ func Panicf(format string, args ...interface{}) {
 
 func WithFields(keyValues Fields) Logger {
 	return log.WithFields(keyValues)
-}
-
-func WithCloudEvents() Logger {
-	return log.WithCloudEvents()
 }

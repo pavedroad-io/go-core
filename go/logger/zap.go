@@ -47,7 +47,13 @@ func newZapLogger(config Configuration) (Logger, error) {
 	if config.EnableConsole {
 		level := getZapLevel(config.LogLevel)
 		writer := zapcore.Lock(os.Stdout)
-		core := zapcore.NewCore(getEncoder(config.ConsoleJSONFormat), writer, level)
+		var json bool
+		if config.ConsoleFormat == TypeTextFormat {
+			json = false
+		} else {
+			json = true
+		}
+		core := zapcore.NewCore(getEncoder(json), writer, level)
 		cores = append(cores, core)
 	}
 
@@ -59,7 +65,13 @@ func newZapLogger(config Configuration) (Logger, error) {
 			Compress: true,
 			MaxAge:   28,
 		})
-		core := zapcore.NewCore(getEncoder(config.FileJSONFormat), writer, level)
+		var json bool
+		if config.FileFormat == TypeTextFormat {
+			json = false
+		} else {
+			json = true
+		}
+		core := zapcore.NewCore(getEncoder(json), writer, level)
 		cores = append(cores, core)
 	}
 
@@ -71,6 +83,15 @@ func newZapLogger(config Configuration) (Logger, error) {
 		zap.AddCallerSkip(2),
 		zap.AddCaller(),
 	).Sugar()
+
+	if config.EnableCloudEvents {
+		zaplogger := &zapLogger{
+			sugaredLogger: logger,
+		}
+		newlogger := zaplogger.WithFields(ceFields)
+
+		return newlogger, nil
+	}
 
 	return &zapLogger{
 		sugaredLogger: logger,
@@ -121,8 +142,4 @@ func (l *zapLogger) WithFields(fields Fields) Logger {
 	}
 	newLogger := l.sugaredLogger.With(f...)
 	return &zapLogger{newLogger}
-}
-
-func (l *zapLogger) WithCloudEvents() Logger {
-	return l.WithFields(ceFields)
 }
