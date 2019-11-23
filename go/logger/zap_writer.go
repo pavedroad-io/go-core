@@ -10,9 +10,6 @@ import (
 	"github.com/Shopify/sarama"
 )
 
-// type KeyerFn represents any function that can turn a message into a key for that particular message
-type KeyerFn func(*sarama.ProducerMessage) sarama.Encoder
-
 // ZapWriter is an io.Writer that writes messages to Kafka, ignoring any error responses sent by the brokers.
 // Parallel calls to Write / ReadFrom are safe.
 //
