@@ -48,6 +48,9 @@ func main() {
 		log.Infof("Zap using Infof")
 		log.Warnf("Zap using Warnf")
 		log.Errorf("Zap using Errorf")
+		log.Print("Zap using Print")
+		log.Printf("Zap using Printf")
+		log.Println("Zap using Println")
 		time.Sleep(time.Second)
 	}
 

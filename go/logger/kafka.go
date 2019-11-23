@@ -27,6 +27,8 @@ func NewAsyncProducer(config ProducerConfiguration) (sarama.AsyncProducer, error
 	cfg.Producer.RequiredAcks = config.Ack
 	cfg.Producer.Compression = config.Compression
 	cfg.Producer.Flush.Frequency = config.FlushFreq * time.Millisecond
+	cfg.Producer.Return.Successes = false
+	cfg.Producer.Return.Errors = false
 
 	if config.EnableTLS {
 		cfg.Net.TLS.Enable = true

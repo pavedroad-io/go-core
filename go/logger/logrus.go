@@ -3,13 +3,11 @@
 package logger
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"os"
 	"time"
 
-	uuid "github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
 )
@@ -33,13 +31,11 @@ func (f *ceFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	id, err := uuid.NewV4()
+	msg, err = prefixID(msg)
 	if err != nil {
 		return nil, err
 	}
-	parts := [][]byte{[]byte("{\"id\":\""), []byte(id.String()), []byte("\",")}
-	json := bytes.Join(parts, []byte(""))
-	return bytes.Replace(msg, []byte("{"), json, 1), nil
+	return msg, nil
 }
 
 func getFormatter(format FormatType, truncate bool) logrus.Formatter {

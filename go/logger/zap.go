@@ -3,6 +3,7 @@
 package logger
 
 import (
+	"fmt"
 	"os"
 
 	"go.uber.org/zap"
@@ -18,6 +19,9 @@ func getEncoder(isJSON bool) zapcore.Encoder {
 	encoderConfig := zap.NewProductionEncoderConfig()
 	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	encoderConfig.TimeKey = "time"
+	encoderConfig.LevelKey = "subject"
+	encoderConfig.MessageKey = "data"
+	encoderConfig.CallerKey = ""
 	if isJSON {
 		return zapcore.NewJSONEncoder(encoderConfig)
 	}
@@ -43,6 +47,25 @@ func getZapLevel(level string) zapcore.Level {
 
 func newZapLogger(config Configuration) (Logger, error) {
 	cores := []zapcore.Core{}
+
+	if config.EnableKafka {
+		level := getZapLevel(config.LogLevel)
+		// create an async producer
+		asyncproducer, err := NewAsyncProducer(config.KafkaProducerCfg)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "NewAsyncProducer failed", err.Error())
+		}
+		writer := NewZapWriter(config.KafkaProducerCfg.Topic, asyncproducer)
+
+		var json bool
+		if config.KafkaFormat == TypeTextFormat {
+			json = false
+		} else {
+			json = true
+		}
+		core := zapcore.NewCore(getEncoder(json), writer, level)
+		cores = append(cores, core)
+	}
 
 	if config.EnableConsole {
 		level := getZapLevel(config.LogLevel)
