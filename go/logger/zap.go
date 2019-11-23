@@ -15,17 +15,23 @@ type zapLogger struct {
 	sugaredLogger *zap.SugaredLogger
 }
 
-func getEncoder(isJSON bool) zapcore.Encoder {
+func getEncoder(format FormatType) zapcore.Encoder {
 	encoderConfig := zap.NewProductionEncoderConfig()
 	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-	encoderConfig.TimeKey = "time"
-	encoderConfig.LevelKey = "subject"
-	encoderConfig.MessageKey = "data"
-	encoderConfig.CallerKey = ""
-	if isJSON {
+	switch format {
+	case TypeJSONFormat:
 		return zapcore.NewJSONEncoder(encoderConfig)
+	case TypeTextFormat:
+		return zapcore.NewConsoleEncoder(encoderConfig)
+	case TypeCEFormat:
+		encoderConfig.TimeKey = ceTimeKey
+		encoderConfig.LevelKey = ceLevelKey
+		encoderConfig.MessageKey = ceMessageKey
+		encoderConfig.CallerKey = ""
+		return zapcore.NewJSONEncoder(encoderConfig)
+	default:
+		return nil
 	}
-	return zapcore.NewConsoleEncoder(encoderConfig)
 }
 
 func getZapLevel(level string) zapcore.Level {
@@ -56,27 +62,14 @@ func newZapLogger(config Configuration) (Logger, error) {
 			fmt.Fprintln(os.Stderr, "NewAsyncProducer failed", err.Error())
 		}
 		writer := NewZapWriter(config.KafkaProducerCfg.Topic, asyncproducer)
-
-		var json bool
-		if config.KafkaFormat == TypeTextFormat {
-			json = false
-		} else {
-			json = true
-		}
-		core := zapcore.NewCore(getEncoder(json), writer, level)
+		core := zapcore.NewCore(getEncoder(config.KafkaFormat), writer, level)
 		cores = append(cores, core)
 	}
 
 	if config.EnableConsole {
 		level := getZapLevel(config.LogLevel)
 		writer := zapcore.Lock(os.Stdout)
-		var json bool
-		if config.ConsoleFormat == TypeTextFormat {
-			json = false
-		} else {
-			json = true
-		}
-		core := zapcore.NewCore(getEncoder(json), writer, level)
+		core := zapcore.NewCore(getEncoder(config.ConsoleFormat), writer, level)
 		cores = append(cores, core)
 	}
 
@@ -88,24 +81,12 @@ func newZapLogger(config Configuration) (Logger, error) {
 			Compress: true,
 			MaxAge:   28,
 		})
-		var json bool
-		if config.FileFormat == TypeTextFormat {
-			json = false
-		} else {
-			json = true
-		}
-		core := zapcore.NewCore(getEncoder(json), writer, level)
+		core := zapcore.NewCore(getEncoder(config.FileFormat), writer, level)
 		cores = append(cores, core)
 	}
 
 	combinedCore := zapcore.NewTee(cores...)
-
-	// AddCallerSkip skips 2 number of callers, this is important else the file that gets
-	// logged will always be the wrapped file. In our case zap.go
-	logger := zap.New(combinedCore,
-		zap.AddCallerSkip(2),
-		zap.AddCaller(),
-	).Sugar()
+	logger := zap.New(combinedCore).Sugar()
 
 	if config.EnableCloudEvents {
 		zaplogger := &zapLogger{

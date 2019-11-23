@@ -20,14 +20,14 @@ func main() {
 		EnableKafka:       true,
 		KafkaFormat:       logger.TypeCEFormat,
 		KafkaProducerCfg: logger.ProducerConfiguration{
-			Brokers:       []string{"localhost:9092"},
-			Topic:         "logs",
-			PartitionType: "random",
-			KeyType:       "hash",
-			Compression:   sarama.CompressionSnappy,
-			Ack:           sarama.WaitForLocal,
-			FlushFreq:     500, // milliseconds
-			EnableTLS:     false,
+			Brokers:     []string{"localhost:9092"},
+			Topic:       "logs",
+			Partition:   logger.RandomPartition,
+			KeyType:     "hash",
+			Compression: sarama.CompressionSnappy,
+			Ack:         sarama.WaitForLocal,
+			FlushFreq:   500, // milliseconds
+			EnableTLS:   false,
 		},
 		EnableConsole:        true,
 		ConsoleFormat:        logger.TypeTextFormat,

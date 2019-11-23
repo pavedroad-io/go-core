@@ -10,13 +10,6 @@ var log Logger
 //Fields Type to pass when we want to call WithFields for structured logging
 type Fields map[string]interface{}
 
-//Fields for cloudevents
-var ceFields = Fields{
-	"source":      "http://github.com/pavedroad-io/core/go/logger",
-	"specversion": "1.0",
-	"type":        "io.pavedroad.cloudevents.log",
-}
-
 const (
 	//Debug has verbose message
 	Debug = "debug"

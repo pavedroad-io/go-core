@@ -31,7 +31,7 @@ func (f *ceFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	msg, err = prefixID(msg)
+	msg, err = ceAddIdField(msg)
 	if err != nil {
 		return nil, err
 	}
@@ -52,9 +52,9 @@ func getFormatter(format FormatType, truncate bool) logrus.Formatter {
 			logrus.JSONFormatter{
 				TimestampFormat: time.RFC3339,
 				FieldMap: logrus.FieldMap{
-					logrus.FieldKeyTime:  "time",
-					logrus.FieldKeyMsg:   "data",
-					logrus.FieldKeyLevel: "subject",
+					logrus.FieldKeyTime:  ceTimeKey,
+					logrus.FieldKeyMsg:   ceMessageKey,
+					logrus.FieldKeyLevel: ceLevelKey,
 				},
 			},
 		}

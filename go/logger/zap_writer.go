@@ -42,8 +42,8 @@ func (uw *ZapWriter) Write(p []byte) (n int, err error) {
 	if uw.Closed() {
 		return 0, syscall.EINVAL
 	}
-	// prefix message with id field
-	p, err = prefixID(p)
+	// add cloudevents id field to message
+	p, err = ceAddIdField(p)
 	if err != nil {
 		return 0, err
 	}
