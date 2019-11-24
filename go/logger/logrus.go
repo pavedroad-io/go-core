@@ -27,11 +27,8 @@ type ceFormatter struct {
 
 // override the Format method for cloudevents
 func (f *ceFormatter) Format(entry *logrus.Entry) ([]byte, error) {
+	// TODO may no longer need this as msg now modified in sendMessage
 	msg, err := f.JSONFormatter.Format(entry)
-	if err != nil {
-		return nil, err
-	}
-	msg, err = ceAddIdField(msg)
 	if err != nil {
 		return nil, err
 	}
@@ -94,13 +91,13 @@ func newLogrusLogger(config Configuration) (Logger, error) {
 
 	if config.EnableKafka {
 		// create an async producer
-		asyncproducer, err := NewAsyncProducer(config.KafkaProducerCfg)
+		kafkaProducer, err := NewKafkaProducer(config.KafkaProducerCfg)
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "NewAsyncProducer failed", err.Error())
+			fmt.Fprintln(os.Stderr, "NewKafkaProducer failed", err.Error())
 		}
 
 		// create the Kafka hook
-		hook := NewLogrusHook().WithFormatter(getFormatter(config.KafkaFormat, true)).WithProducer(asyncproducer).WithTopic(config.KafkaProducerCfg.Topic)
+		hook := NewLogrusHook(config.KafkaProducerCfg).WithFormatter(getFormatter(config.KafkaFormat, true)).WithProducer(kafkaProducer)
 
 		// add the hook
 		lLogger.Hooks.Add(hook)

@@ -7,16 +7,15 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/Shopify/sarama"
 	"github.com/sirupsen/logrus"
 )
 
 // Object represents a logrus hook for Kafka
 type LogrusHook struct {
+	config    ProducerConfiguration
+	kp        kafkaProducer
 	formatter logrus.Formatter
 	levels    []logrus.Level
-	producer  sarama.AsyncProducer
-	topic     string
 }
 
 // New creates a new logrus hook for Kafka
@@ -27,8 +26,9 @@ type LogrusHook struct {
 //		Levels: *logrus.AllLevels*
 //
 
-func NewLogrusHook() *LogrusHook {
+func NewLogrusHook(config ProducerConfiguration) *LogrusHook {
 	return &LogrusHook{
+		config:    config,
 		formatter: new(logrus.TextFormatter),
 		levels:    logrus.AllLevels,
 	}
@@ -47,23 +47,17 @@ func (h *LogrusHook) WithLevels(levels []logrus.Level) *LogrusHook {
 }
 
 // WithProducer adds a producer to the created Hook
-func (h *LogrusHook) WithProducer(producer sarama.AsyncProducer) *LogrusHook {
-	h.producer = producer
+func (h *LogrusHook) WithProducer(producer kafkaProducer) *LogrusHook {
+	h.kp = producer
 
-	if producer != nil {
+	if h.kp.producer != nil {
 		go func() {
-			for err := range producer.Errors() {
-				fmt.Fprintln(os.Stderr, "[ERROR]", err)
+			for err := range h.kp.producer.Errors() {
+				fmt.Fprintln(os.Stderr, "Producer error", err.Error())
 			}
 		}()
 	}
 
-	return h
-}
-
-// WithTopic adds a topic to the created Hook
-func (h *LogrusHook) WithTopic(topic string) *LogrusHook {
-	h.topic = topic
 	return h
 }
 
@@ -82,28 +76,14 @@ func (h *LogrusHook) Levels() []logrus.Level {
 
 // Fire writes the entry as a message on Kafka
 func (h *LogrusHook) Fire(entry *logrus.Entry) error {
-	var key sarama.Encoder
-
-	if t, err := entry.Time.MarshalBinary(); err == nil {
-		key = sarama.ByteEncoder(t)
-	} else {
-		key = sarama.StringEncoder(entry.Level.String())
-	}
-
 	msg, err := h.formatter.Format(entry)
 	if err != nil {
 		return err
 	}
 
-	if h.producer == nil {
+	if h.kp.producer == nil {
 		return errors.New("no producer defined")
 	}
 
-	h.producer.Input() <- &sarama.ProducerMessage{
-		Topic: h.topic,
-		Key:   key,
-		Value: sarama.ByteEncoder(msg),
-	}
-
-	return nil
+	return h.kp.sendMessage(msg)
 }

@@ -6,8 +6,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"syscall"
-
-	"github.com/Shopify/sarama"
 )
 
 // ZapWriter is an io.Writer that writes messages to Kafka, ignoring any error responses sent by the brokers.
@@ -17,67 +15,56 @@ import (
 //
 // Close() must be called when the writer is no longer needed.
 type ZapWriter struct {
-	kp        sarama.AsyncProducer
-	topic     string
+	cfg       ProducerConfiguration
+	kp        kafkaProducer
 	closed    int32          // nonzero if the writer has started closing. Must be accessed atomically
 	pendingWg sync.WaitGroup // WaitGroup for pending messages
 	closeMut  sync.Mutex
 }
 
-func NewZapWriter(topic string, kp sarama.AsyncProducer) *ZapWriter {
-	uw := &ZapWriter{kp: kp, topic: topic}
-	return uw
+func NewZapWriter(cfg ProducerConfiguration, kp kafkaProducer) *ZapWriter {
+	zw := &ZapWriter{cfg: cfg, kp: kp}
+	return zw
 }
 
 // Sync does nothing for now
-func (uw *ZapWriter) Sync() error {
+func (zw *ZapWriter) Sync() error {
 	return nil
 }
 
 // Write writes byte slices to Kafka without checking for error responses.
 // Trying to Write to a closed writer will return syscall.EINVAL. Thread-safe.
 //
-// Write might block if the Input() channel of the underlying sarama.AsyncProducer is full.
-func (uw *ZapWriter) Write(p []byte) (n int, err error) {
-	if uw.Closed() {
+// Write might block if the Input() channel of the underlying AsyncProducer is full.
+func (zw *ZapWriter) Write(msg []byte) (int, error) {
+	if zw.Closed() {
 		return 0, syscall.EINVAL
 	}
-	// add cloudevents id field to message
-	p, err = ceAddIdField(p)
-	if err != nil {
-		return 0, err
-	}
 
-	uw.pendingWg.Add(1)
-	defer uw.pendingWg.Done()
+	zw.pendingWg.Add(1)
+	defer zw.pendingWg.Done()
 
-	n = len(p)
-	msg := &sarama.ProducerMessage{
-		Topic: uw.topic,
-		Key:   nil,
-		Value: sarama.ByteEncoder(p),
-	}
-	uw.kp.Input() <- msg
-	return
+	err := zw.kp.sendMessage(msg)
+	return len(msg), err
 }
 
 // Closed returns true if the ZapWriter has been closed, false otherwise. Thread-safe.
-func (uw *ZapWriter) Closed() bool {
-	return atomic.LoadInt32(&uw.closed) != 0
+func (zw *ZapWriter) Closed() bool {
+	return atomic.LoadInt32(&zw.closed) != 0
 }
 
 // Close closes the writer.
 // If the writer has already been closed, Close will return syscall.EINVAL. Thread-safe.
-func (uw *ZapWriter) Close() (err error) {
-	uw.closeMut.Lock()
-	defer uw.closeMut.Unlock()
+func (zw *ZapWriter) Close() (err error) {
+	zw.closeMut.Lock()
+	defer zw.closeMut.Unlock()
 
-	if uw.Closed() {
+	if zw.Closed() {
 		return syscall.EINVAL
 	}
 
-	atomic.StoreInt32(&uw.closed, 1)
+	atomic.StoreInt32(&zw.closed, 1)
 
-	uw.pendingWg.Wait()
+	zw.pendingWg.Wait()
 	return nil
 }

@@ -17,7 +17,7 @@ type zapLogger struct {
 
 func getEncoder(format FormatType) zapcore.Encoder {
 	encoderConfig := zap.NewProductionEncoderConfig()
-	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	encoderConfig.EncodeTime = zapcore.RFC3339TimeEncoder
 	switch format {
 	case TypeJSONFormat:
 		return zapcore.NewJSONEncoder(encoderConfig)
@@ -51,18 +51,25 @@ func getZapLevel(level string) zapcore.Level {
 	}
 }
 
+// Temporary hook for testing
+func ZapHook(entry zapcore.Entry) error {
+	fmt.Printf("ZapHook: entry <%+v>\n", entry)
+	return nil
+}
+
 func newZapLogger(config Configuration) (Logger, error) {
 	cores := []zapcore.Core{}
 
 	if config.EnableKafka {
 		level := getZapLevel(config.LogLevel)
 		// create an async producer
-		asyncproducer, err := NewAsyncProducer(config.KafkaProducerCfg)
+		kafkaProducer, err := NewKafkaProducer(config.KafkaProducerCfg)
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "NewAsyncProducer failed", err.Error())
+			fmt.Fprintln(os.Stderr, "NewKafkaProducer failed", err.Error())
 		}
-		writer := NewZapWriter(config.KafkaProducerCfg.Topic, asyncproducer)
+		writer := NewZapWriter(config.KafkaProducerCfg, kafkaProducer)
 		core := zapcore.NewCore(getEncoder(config.KafkaFormat), writer, level)
+		// core = zapcore.RegisterHooks(core, ZapHook)
 		cores = append(cores, core)
 	}
 

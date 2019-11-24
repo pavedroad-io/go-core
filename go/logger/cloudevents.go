@@ -1,7 +1,9 @@
 package logger
 
 import (
-	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 
 	uuid "github.com/satori/go.uuid"
 )
@@ -10,13 +12,20 @@ type ceKey string
 
 // Keys for cloudevents fields
 const (
-	ceIdKey      ceKey = "id"
+	ceIDKey      ceKey = "id"
 	ceLevelKey         = "subject"
 	ceMessageKey       = "data"
 	ceSourceKey        = "source"
 	ceTimeKey          = "time"
 	ceTypeKey          = "type"
 	ceVersionKey       = "specversion"
+)
+
+type ceIDType int
+
+const (
+	TypeHMAC ceIDType = iota // for de-dupliation
+	TypeUUID                 // completely unique
 )
 
 // Fixed field values for cloudevents
@@ -27,12 +36,23 @@ var ceFields = Fields{
 }
 
 // Add the cloudevents ID field to the message (UUID)
-func ceAddIdField(msg []byte) ([]byte, error) {
-	id, err := uuid.NewV4()
-	if err != nil {
-		return nil, err
+// Other cloudevents fields could be added here based on config
+func (kp *kafkaProducer) ceAddFields(msgMap map[string]interface{}) error {
+	switch kp.config.CloudeventsID {
+	case TypeUUID:
+		id, err := uuid.NewV4() // RFC4112
+		if err != nil {
+			return err
+		}
+		msgMap[string(ceIDKey)] = id
+	case TypeHMAC:
+		fallthrough
+	default:
+		key := []byte("pavedroad-secret")
+		h := hmac.New(sha256.New, key)
+		h.Write([]byte(msgMap[string(ceMessageKey)].(string)))
+		id := base64.StdEncoding.EncodeToString(h.Sum(nil))
+		msgMap[string(ceIDKey)] = id
 	}
-	parts := [][]byte{[]byte("{\"id\":\""), []byte(id.String()), []byte("\",")}
-	json := bytes.Join(parts, []byte(""))
-	return bytes.Replace(msg, []byte("{"), json, 1), nil
+	return nil
 }

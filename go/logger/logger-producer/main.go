@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os/user"
 	"time"
 
 	"github.com/Shopify/sarama"
@@ -9,25 +10,27 @@ import (
 )
 
 // Create loggers for zap and logrus
-// TODO should KafkaProducerCfg be an anonymous member?
 // Note that Kafka producer flush frequency is set to one half second
 // Thus the one second sleeps below will cause the queue to be flushed
 
 func main() {
+	user, _ := user.Current()
 	config := logger.Configuration{
 		LogLevel:          logger.Info,
 		EnableCloudEvents: true,
 		EnableKafka:       true,
 		KafkaFormat:       logger.TypeCEFormat,
 		KafkaProducerCfg: logger.ProducerConfiguration{
-			Brokers:     []string{"localhost:9092"},
-			Topic:       "logs",
-			Partition:   logger.RandomPartition,
-			KeyType:     "hash",
-			Compression: sarama.CompressionSnappy,
-			Ack:         sarama.WaitForLocal,
-			FlushFreq:   500, // milliseconds
-			EnableTLS:   false,
+			Brokers:       []string{"localhost:9092"},
+			Topic:         "logs",
+			Partition:     logger.RandomPartition,
+			Key:           logger.FixedKey,
+			KeyName:       user.Username,
+			CloudeventsID: logger.TypeHMAC,
+			Compression:   sarama.CompressionSnappy,
+			Ack:           sarama.WaitForLocal,
+			FlushFreq:     500, // milliseconds
+			EnableTLS:     false,
 		},
 		EnableConsole:        true,
 		ConsoleFormat:        logger.TypeTextFormat,
@@ -56,11 +59,45 @@ func main() {
 
 	// try a logrus logger
 
+	config.KafkaProducerCfg.CloudeventsID = logger.TypeUUID
 	log, err = logger.NewLogger(config, logger.InstanceLogrusLogger)
 	if err != nil {
 		fmt.Printf("Could not instantiate logrus logger %s", err.Error())
 	} else {
 		log.Debugf("Logrus using Debugf (should not appear)")
+		log.Infof("Logrus using Infof")
+		log.Warnf("Logrus using Warnf")
+		log.Errorf("Logrus using Errorf")
+		log.Print("Logrus using Print")
+		log.Printf("Logrus using Printf")
+		log.Println("Logrus using Println")
+		time.Sleep(time.Second)
+	}
+
+	// try setting key to message subject field value
+
+	config.KafkaProducerCfg.Key = logger.ExtractedKey
+	config.KafkaProducerCfg.KeyName = "subject"
+	log, err = logger.NewLogger(config, logger.InstanceLogrusLogger)
+	if err != nil {
+		fmt.Printf("Could not instantiate logrus logger %s", err.Error())
+	} else {
+		log.Infof("Logrus using Infof")
+		log.Warnf("Logrus using Warnf")
+		log.Errorf("Logrus using Errorf")
+		log.Print("Logrus using Print")
+		log.Printf("Logrus using Printf")
+		log.Println("Logrus using Println")
+		time.Sleep(time.Second)
+	}
+
+	// try setting key to log level field value
+
+	config.KafkaProducerCfg.Key = logger.LevelKey
+	log, err = logger.NewLogger(config, logger.InstanceLogrusLogger)
+	if err != nil {
+		fmt.Printf("Could not instantiate logrus logger %s", err.Error())
+	} else {
 		log.Infof("Logrus using Infof")
 		log.Warnf("Logrus using Warnf")
 		log.Errorf("Logrus using Errorf")

@@ -38,7 +38,7 @@ func main() {
 	for {
 		select {
 		case msg := <-consumer.Messages():
-			fmt.Printf("%s", msg.Value)
+			fmt.Printf("P:%d K:%s V:%s\n", msg.Partition, msg.Key, msg.Value)
 			consumer.MarkOffset(msg, "kafka-test")
 		case err := <-consumer.Errors():
 			fmt.Fprintf(os.Stderr, "Message error: %s\n", err)
