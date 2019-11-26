@@ -23,13 +23,16 @@ const (
 	Fatal = "fatal"
 )
 
+// Types of loggers
 const (
 	InstanceZapLogger int = iota
 	InstanceLogrusLogger
 )
 
+// FormatType provides type for logger formats
 type FormatType int
 
+// Types of logger formats
 const (
 	TypeJSONFormat FormatType = iota
 	TypeTextFormat
@@ -104,42 +107,52 @@ func NewLogger(config Configuration, loggerInstance int) (Logger, error) {
 	}
 }
 
+// Print method for logger interface
 func Print(args ...interface{}) {
 	log.Print(args...)
 }
 
+// Printf method for logger interface
 func Printf(format string, args ...interface{}) {
 	log.Printf(format, args...)
 }
 
+// Println method for logger interface
 func Println(args ...interface{}) {
 	log.Println(args...)
 }
 
+// Debugf method for logger interface
 func Debugf(format string, args ...interface{}) {
 	log.Debugf(format, args...)
 }
 
+// Infof method for logger interface
 func Infof(format string, args ...interface{}) {
 	log.Infof(format, args...)
 }
 
+// Warnf method for logger interface
 func Warnf(format string, args ...interface{}) {
 	log.Warnf(format, args...)
 }
 
+// Errorf method for logger interface
 func Errorf(format string, args ...interface{}) {
 	log.Errorf(format, args...)
 }
 
+// Fatalf method for logger interface
 func Fatalf(format string, args ...interface{}) {
 	log.Fatalf(format, args...)
 }
 
+// Panicf method for logger interface
 func Panicf(format string, args ...interface{}) {
 	log.Panicf(format, args...)
 }
 
+// WithFields method for logger interface
 func WithFields(keyValues Fields) Logger {
 	return log.WithFields(keyValues)
 }

@@ -13,6 +13,7 @@ import (
 
 type kafkaPartitionType int8
 
+// Types of kafka partitioning
 const (
 	RandomPartition kafkaPartitionType = iota
 	HashPartition
@@ -21,6 +22,7 @@ const (
 
 type kafkaKeyType int8
 
+// Types of kafka keys
 const (
 	LevelKey kafkaKeyType = iota
 	TimeSecondKey
@@ -29,6 +31,7 @@ const (
 	ExtractedKey
 )
 
+// ProducerConfiguration provides kafka producer configuration
 type ProducerConfiguration struct {
 	Brokers       []string
 	Topic         string
@@ -43,13 +46,14 @@ type ProducerConfiguration struct {
 	TLSCfg        tls.Config
 }
 
-// Wrapper around sarama.NewAsyncProducer
-type kafkaProducer struct {
+// KafkaProducer wraps sarama producer with config
+type KafkaProducer struct {
 	producer sarama.AsyncProducer
 	config   ProducerConfiguration
 }
 
-func NewKafkaProducer(config ProducerConfiguration) (kafkaProducer, error) {
+// NewKafkaProducer returns a kafka producer instance
+func NewKafkaProducer(config ProducerConfiguration) (KafkaProducer, error) {
 	cfg := sarama.NewConfig()
 	cfg.Producer.RequiredAcks = config.Ack
 	cfg.Producer.Compression = config.Compression
@@ -78,13 +82,13 @@ func NewKafkaProducer(config ProducerConfiguration) (kafkaProducer, error) {
 		fmt.Fprintln(os.Stderr, "NewAsyncProducer failed", err.Error())
 	}
 
-	return kafkaProducer{
+	return KafkaProducer{
 		producer: producer,
 		config:   config,
 	}, err
 }
 
-func (kp *kafkaProducer) sendMessage(msg []byte) error {
+func (kp *KafkaProducer) sendMessage(msg []byte) error {
 	var msgMap map[string]interface{}
 
 	// unmarshal message to access fields

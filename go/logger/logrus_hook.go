@@ -10,22 +10,15 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// Object represents a logrus hook for Kafka
+// LogrusHook represents a logrus hook for Kafka
 type LogrusHook struct {
 	config    ProducerConfiguration
-	kp        kafkaProducer
+	kp        KafkaProducer
 	formatter logrus.Formatter
 	levels    []logrus.Level
 }
 
-// New creates a new logrus hook for Kafka
-//
-// Defaults:
-//
-//		Formatter: *logrus.TextFormatter*
-//		Levels: *logrus.AllLevels*
-//
-
+// NewLogrusHook returns a kafka producer hook instance
 func NewLogrusHook(config ProducerConfiguration) *LogrusHook {
 	return &LogrusHook{
 		config:    config,
@@ -47,7 +40,7 @@ func (h *LogrusHook) WithLevels(levels []logrus.Level) *LogrusHook {
 }
 
 // WithProducer adds a producer to the created Hook
-func (h *LogrusHook) WithProducer(producer kafkaProducer) *LogrusHook {
+func (h *LogrusHook) WithProducer(producer KafkaProducer) *LogrusHook {
 	h.kp = producer
 
 	if h.kp.producer != nil {

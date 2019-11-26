@@ -16,13 +16,14 @@ import (
 // Close() must be called when the writer is no longer needed.
 type ZapWriter struct {
 	cfg       ProducerConfiguration
-	kp        kafkaProducer
+	kp        KafkaProducer
 	closed    int32          // nonzero if the writer has started closing. Must be accessed atomically
 	pendingWg sync.WaitGroup // WaitGroup for pending messages
 	closeMut  sync.Mutex
 }
 
-func NewZapWriter(cfg ProducerConfiguration, kp kafkaProducer) *ZapWriter {
+// NewZapWriter returns a kafka io.writer instance
+func NewZapWriter(cfg ProducerConfiguration, kp KafkaProducer) *ZapWriter {
 	zw := &ZapWriter{cfg: cfg, kp: kp}
 	return zw
 }

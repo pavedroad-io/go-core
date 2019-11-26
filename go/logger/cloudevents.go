@@ -23,6 +23,7 @@ const (
 
 type ceIDType int
 
+// Types of cloudevents id fields
 const (
 	TypeHMAC ceIDType = iota // for de-dupliation
 	TypeUUID                 // completely unique
@@ -37,7 +38,7 @@ var ceFields = Fields{
 
 // Add the cloudevents ID field to the message (UUID)
 // Other cloudevents fields could be added here based on config
-func (kp *kafkaProducer) ceAddFields(msgMap map[string]interface{}) error {
+func (kp *KafkaProducer) ceAddFields(msgMap map[string]interface{}) error {
 	switch kp.config.CloudeventsID {
 	case TypeUUID:
 		id, err := uuid.NewV4() // RFC4112

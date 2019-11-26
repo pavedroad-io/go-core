@@ -52,7 +52,7 @@ func getZapLevel(level string) zapcore.Level {
 }
 
 // Temporary hook for testing
-func ZapHook(entry zapcore.Entry) error {
+func zapHook(entry zapcore.Entry) error {
 	fmt.Printf("ZapHook: entry <%+v>\n", entry)
 	return nil
 }
@@ -69,7 +69,7 @@ func newZapLogger(config Configuration) (Logger, error) {
 		}
 		writer := NewZapWriter(config.KafkaProducerCfg, kafkaProducer)
 		core := zapcore.NewCore(getEncoder(config.KafkaFormat), writer, level)
-		// core = zapcore.RegisterHooks(core, ZapHook)
+		// core = zapcore.RegisterHooks(core, zapHook)
 		cores = append(cores, core)
 	}
 
