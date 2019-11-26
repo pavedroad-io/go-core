@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/Shopify/sarama"
@@ -22,6 +23,8 @@ type kafkaKeyType int8
 
 const (
 	LevelKey kafkaKeyType = iota
+	TimeSecondKey
+	TimeNanoSecondKey
 	FixedKey
 	ExtractedKey
 )
@@ -98,6 +101,10 @@ func (kp *kafkaProducer) sendMessage(msg []byte) error {
 	case ExtractedKey:
 		// TODO fails if key is not in message
 		key = sarama.StringEncoder(msgMap[kp.config.KeyName].(string))
+	case TimeSecondKey:
+		key = sarama.StringEncoder(strconv.Itoa(int(time.Now().Unix())))
+	case TimeNanoSecondKey:
+		key = sarama.StringEncoder(strconv.Itoa(int(time.Now().UnixNano())))
 	case LevelKey:
 		fallthrough
 	default:

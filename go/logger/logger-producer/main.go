@@ -58,8 +58,10 @@ func main() {
 	}
 
 	// try a logrus logger
+	// switch to UUID ID and level key
 
 	config.KafkaProducerCfg.CloudeventsID = logger.TypeUUID
+	config.KafkaProducerCfg.Key = logger.LevelKey
 	log, err = logger.NewLogger(config, logger.InstanceLogrusLogger)
 	if err != nil {
 		fmt.Printf("Could not instantiate logrus logger %s", err.Error())
@@ -82,28 +84,29 @@ func main() {
 	if err != nil {
 		fmt.Printf("Could not instantiate logrus logger %s", err.Error())
 	} else {
-		log.Infof("Logrus using Infof")
-		log.Warnf("Logrus using Warnf")
-		log.Errorf("Logrus using Errorf")
-		log.Print("Logrus using Print")
-		log.Printf("Logrus using Printf")
-		log.Println("Logrus using Println")
+		log.Infof("Logrus using Infof and subject key (level)")
 		time.Sleep(time.Second)
 	}
 
-	// try setting key to log level field value
+	// try setting key to current time in seconds
 
-	config.KafkaProducerCfg.Key = logger.LevelKey
+	config.KafkaProducerCfg.Key = logger.TimeSecondKey
 	log, err = logger.NewLogger(config, logger.InstanceLogrusLogger)
 	if err != nil {
 		fmt.Printf("Could not instantiate logrus logger %s", err.Error())
 	} else {
-		log.Infof("Logrus using Infof")
-		log.Warnf("Logrus using Warnf")
-		log.Errorf("Logrus using Errorf")
-		log.Print("Logrus using Print")
-		log.Printf("Logrus using Printf")
-		log.Println("Logrus using Println")
+		log.Infof("Logrus using Infof and seconds key")
+		time.Sleep(time.Second)
+	}
+
+	// try setting key to current time in nanoseconds
+
+	config.KafkaProducerCfg.Key = logger.TimeNanoSecondKey
+	log, err = logger.NewLogger(config, logger.InstanceLogrusLogger)
+	if err != nil {
+		fmt.Printf("Could not instantiate logrus logger %s", err.Error())
+	} else {
+		log.Infof("Logrus using Infof and nanoseconds key")
 		time.Sleep(time.Second)
 	}
 }
