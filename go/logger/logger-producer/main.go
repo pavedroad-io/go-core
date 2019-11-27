@@ -47,13 +47,13 @@ func main() {
 	if err != nil {
 		fmt.Printf("Could not instantiate zap logger %s", err.Error())
 	} else {
-		log.Debugf("Zap using Debugf (should not appear)")
-		log.Infof("Zap using Infof")
-		log.Warnf("Zap using Warnf")
-		log.Errorf("Zap using Errorf")
-		log.Print("Zap using Print")
-		log.Printf("Zap using Printf")
-		log.Println("Zap using Println")
+		log.Debugf("Zap using %s", "Debugf (should not appear)")
+		log.Infof("Zap using %s", "Infof")
+		log.Warnf("Zap using %s", "Warnf")
+		log.Errorf("Zap using %s", "Errorf")
+		log.Printf("Zap using %s", "Printf")
+		log.Print("Zap using", "Print")
+		log.Println("Zap using", "Println")
 		time.Sleep(time.Second)
 	}
 
@@ -66,13 +66,13 @@ func main() {
 	if err != nil {
 		fmt.Printf("Could not instantiate logrus logger %s", err.Error())
 	} else {
-		log.Debugf("Logrus using Debugf (should not appear)")
-		log.Infof("Logrus using Infof")
-		log.Warnf("Logrus using Warnf")
-		log.Errorf("Logrus using Errorf")
-		log.Print("Logrus using Print")
-		log.Printf("Logrus using Printf")
-		log.Println("Logrus using Println")
+		log.Debugf("Logrus using %s", "Debugf (should not appear)")
+		log.Infof("Logrus using %s", "Infof")
+		log.Warnf("Logrus using %s", "Warnf")
+		log.Errorf("Logrus using %s", "Errorf")
+		log.Printf("Logrus using %s", "Printf")
+		log.Print("Logrus using", "Print")
+		log.Println("Logrus using", "Println")
 		time.Sleep(time.Second)
 	}
 

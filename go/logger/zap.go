@@ -116,31 +116,79 @@ func (l *zapLogger) Printf(format string, args ...interface{}) {
 }
 
 func (l *zapLogger) Println(args ...interface{}) {
-	l.sugaredLogger.Info(args...)
+	l.sugaredLogger.Info(fmt.Sprintln(args...))
+}
+
+func (l *zapLogger) Debug(args ...interface{}) {
+	l.sugaredLogger.Debug(args...)
 }
 
 func (l *zapLogger) Debugf(format string, args ...interface{}) {
 	l.sugaredLogger.Debugf(format, args...)
 }
 
+func (l *zapLogger) Debugln(args ...interface{}) {
+	l.sugaredLogger.Debug(fmt.Sprintln(args...))
+}
+
+func (l *zapLogger) Info(args ...interface{}) {
+	l.sugaredLogger.Info(args...)
+}
+
 func (l *zapLogger) Infof(format string, args ...interface{}) {
 	l.sugaredLogger.Infof(format, args...)
+}
+
+func (l *zapLogger) Infoln(args ...interface{}) {
+	l.sugaredLogger.Info(fmt.Sprintln(args...))
+}
+
+func (l *zapLogger) Warn(args ...interface{}) {
+	l.sugaredLogger.Warn(args...)
 }
 
 func (l *zapLogger) Warnf(format string, args ...interface{}) {
 	l.sugaredLogger.Warnf(format, args...)
 }
 
+func (l *zapLogger) Warnln(args ...interface{}) {
+	l.sugaredLogger.Warn(fmt.Sprintln(args...))
+}
+
+func (l *zapLogger) Error(args ...interface{}) {
+	l.sugaredLogger.Error(args...)
+}
+
 func (l *zapLogger) Errorf(format string, args ...interface{}) {
 	l.sugaredLogger.Errorf(format, args...)
+}
+
+func (l *zapLogger) Errorln(args ...interface{}) {
+	l.sugaredLogger.Error(fmt.Sprintln(args...))
+}
+
+func (l *zapLogger) Fatal(args ...interface{}) {
+	l.sugaredLogger.Fatal(args...)
 }
 
 func (l *zapLogger) Fatalf(format string, args ...interface{}) {
 	l.sugaredLogger.Fatalf(format, args...)
 }
 
+func (l *zapLogger) Fatalln(args ...interface{}) {
+	l.sugaredLogger.Fatal(fmt.Sprintln(args...))
+}
+
+func (l *zapLogger) Panic(args ...interface{}) {
+	l.sugaredLogger.Panic(args...)
+}
+
 func (l *zapLogger) Panicf(format string, args ...interface{}) {
 	l.sugaredLogger.Fatalf(format, args...)
+}
+
+func (l *zapLogger) Panicln(args ...interface{}) {
+	l.sugaredLogger.Panic(fmt.Sprintln(args...))
 }
 
 func (l *zapLogger) WithFields(fields Fields) Logger {

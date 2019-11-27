@@ -127,28 +127,76 @@ func (l *logrusLogger) Println(args ...interface{}) {
 	l.logger.Println(args...)
 }
 
+func (l *logrusLogger) Debug(args ...interface{}) {
+	l.logger.Debug(args...)
+}
+
 func (l *logrusLogger) Debugf(format string, args ...interface{}) {
 	l.logger.Debugf(format, args...)
+}
+
+func (l *logrusLogger) Debugln(args ...interface{}) {
+	l.logger.Debugln(args...)
+}
+
+func (l *logrusLogger) Info(args ...interface{}) {
+	l.logger.Info(args...)
 }
 
 func (l *logrusLogger) Infof(format string, args ...interface{}) {
 	l.logger.Infof(format, args...)
 }
 
+func (l *logrusLogger) Infoln(args ...interface{}) {
+	l.logger.Infoln(args...)
+}
+
+func (l *logrusLogger) Warn(args ...interface{}) {
+	l.logger.Warn(args...)
+}
+
 func (l *logrusLogger) Warnf(format string, args ...interface{}) {
 	l.logger.Warnf(format, args...)
+}
+
+func (l *logrusLogger) Warnln(args ...interface{}) {
+	l.logger.Warnln(args...)
+}
+
+func (l *logrusLogger) Error(args ...interface{}) {
+	l.logger.Error(args...)
 }
 
 func (l *logrusLogger) Errorf(format string, args ...interface{}) {
 	l.logger.Errorf(format, args...)
 }
 
+func (l *logrusLogger) Errorln(args ...interface{}) {
+	l.logger.Errorln(args...)
+}
+
+func (l *logrusLogger) Fatal(args ...interface{}) {
+	l.logger.Fatal(args...)
+}
+
 func (l *logrusLogger) Fatalf(format string, args ...interface{}) {
 	l.logger.Fatalf(format, args...)
 }
 
+func (l *logrusLogger) Fatalln(args ...interface{}) {
+	l.logger.Fatalln(args...)
+}
+
+func (l *logrusLogger) Panic(args ...interface{}) {
+	l.logger.Panic(args...)
+}
+
 func (l *logrusLogger) Panicf(format string, args ...interface{}) {
 	l.logger.Fatalf(format, args...)
+}
+
+func (l *logrusLogger) Panicln(args ...interface{}) {
+	l.logger.Panicln(args...)
 }
 
 func (l *logrusLogger) WithFields(fields Fields) Logger {
@@ -169,28 +217,76 @@ func (l *logrusLogEntry) Println(args ...interface{}) {
 	l.entry.Println(args...)
 }
 
+func (l *logrusLogEntry) Debug(args ...interface{}) {
+	l.entry.Debug(args...)
+}
+
 func (l *logrusLogEntry) Debugf(format string, args ...interface{}) {
 	l.entry.Debugf(format, args...)
+}
+
+func (l *logrusLogEntry) Debugln(args ...interface{}) {
+	l.entry.Debugln(args...)
+}
+
+func (l *logrusLogEntry) Info(args ...interface{}) {
+	l.entry.Info(args...)
 }
 
 func (l *logrusLogEntry) Infof(format string, args ...interface{}) {
 	l.entry.Infof(format, args...)
 }
 
+func (l *logrusLogEntry) Infoln(args ...interface{}) {
+	l.entry.Infoln(args...)
+}
+
+func (l *logrusLogEntry) Warn(args ...interface{}) {
+	l.entry.Warn(args...)
+}
+
 func (l *logrusLogEntry) Warnf(format string, args ...interface{}) {
 	l.entry.Warnf(format, args...)
+}
+
+func (l *logrusLogEntry) Warnln(args ...interface{}) {
+	l.entry.Warnln(args...)
+}
+
+func (l *logrusLogEntry) Error(args ...interface{}) {
+	l.entry.Error(args...)
 }
 
 func (l *logrusLogEntry) Errorf(format string, args ...interface{}) {
 	l.entry.Errorf(format, args...)
 }
 
+func (l *logrusLogEntry) Errorln(args ...interface{}) {
+	l.entry.Errorln(args...)
+}
+
+func (l *logrusLogEntry) Fatal(args ...interface{}) {
+	l.entry.Fatal(args...)
+}
+
 func (l *logrusLogEntry) Fatalf(format string, args ...interface{}) {
 	l.entry.Fatalf(format, args...)
 }
 
+func (l *logrusLogEntry) Fatalln(args ...interface{}) {
+	l.entry.Fatalln(args...)
+}
+
+func (l *logrusLogEntry) Panic(args ...interface{}) {
+	l.entry.Panic(args...)
+}
+
 func (l *logrusLogEntry) Panicf(format string, args ...interface{}) {
 	l.entry.Fatalf(format, args...)
+}
+
+func (l *logrusLogEntry) Panicln(args ...interface{}) {
+	l.entry.Panicln(args...)
 }
 
 func (l *logrusLogEntry) WithFields(fields Fields) Logger {
