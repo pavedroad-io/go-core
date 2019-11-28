@@ -25,8 +25,8 @@ type ceIDType int
 
 // Types of cloudevents id fields
 const (
-	TypeHMAC ceIDType = iota // for de-dupliation
-	TypeUUID                 // completely unique
+	HMAC ceIDType = iota // for de-dupliation
+	UUID                 // completely unique
 )
 
 // Fixed field values for cloudevents
@@ -40,13 +40,13 @@ var ceFields = Fields{
 // Other cloudevents fields could be added here based on config
 func (kp *KafkaProducer) ceAddFields(msgMap map[string]interface{}) error {
 	switch kp.config.CloudeventsID {
-	case TypeUUID:
+	case UUID:
 		id, err := uuid.NewV4() // RFC4112
 		if err != nil {
 			return err
 		}
 		msgMap[string(ceIDKey)] = id
-	case TypeHMAC:
+	case HMAC:
 		fallthrough
 	default:
 		key := []byte("pavedroad-secret")

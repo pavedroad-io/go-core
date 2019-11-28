@@ -18,34 +18,37 @@ type zapLogger struct {
 func getEncoder(format FormatType) zapcore.Encoder {
 	encoderConfig := zap.NewProductionEncoderConfig()
 	encoderConfig.EncodeTime = zapcore.RFC3339TimeEncoder
+
 	switch format {
-	case TypeJSONFormat:
+	case JSONFormat:
 		return zapcore.NewJSONEncoder(encoderConfig)
-	case TypeTextFormat:
-		return zapcore.NewConsoleEncoder(encoderConfig)
-	case TypeCEFormat:
+	case CEFormat:
 		encoderConfig.TimeKey = ceTimeKey
 		encoderConfig.LevelKey = ceLevelKey
 		encoderConfig.MessageKey = ceMessageKey
 		encoderConfig.CallerKey = ""
 		return zapcore.NewJSONEncoder(encoderConfig)
+	case TextFormat:
+		fallthrough
 	default:
-		return nil
+		return zapcore.NewConsoleEncoder(encoderConfig)
 	}
 }
 
-func getZapLevel(level string) zapcore.Level {
+func getZapLevel(level LevelType) zapcore.Level {
 	switch level {
+	case Debug:
+		return zapcore.DebugLevel
 	case Info:
 		return zapcore.InfoLevel
 	case Warn:
 		return zapcore.WarnLevel
-	case Debug:
-		return zapcore.DebugLevel
 	case Error:
 		return zapcore.ErrorLevel
 	case Fatal:
 		return zapcore.FatalLevel
+	case Panic:
+		return zapcore.PanicLevel
 	default:
 		return zapcore.InfoLevel
 	}

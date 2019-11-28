@@ -4,44 +4,43 @@ package logger
 
 import "errors"
 
-// Fields provides type used in calling WithFields for structured logging
+// Fields provided for calls to WithFields for structured logging
 type Fields map[string]interface{}
 
+// LogType provided to select underlying log package
+type LogType int8
+
+// Supported log packages
 const (
-	//Debug has verbose message
-	Debug = "debug"
-	//Info is default log level
-	Info = "info"
-	//Warn is for logging messages about possible issues
-	Warn = "warn"
-	//Error is for logging errors
-	Error = "error"
-	//Fatal is for logging fatal messages. The sytem shutsdown after logging the message.
-	Fatal = "fatal"
+	Zap LogType = iota
+	Logrus
 )
 
-// LoggerType provide types of loggers
-type LoggerType int8
+// LevelType provided to select log level
+type LevelType string
 
-// Types of loggers
+// Supported log levels
 const (
-	TypeZapLogger LoggerType = iota
-	TypeLogrusLogger
+	Debug LevelType = "debug"
+	Info            = "info" // default
+	Warn            = "warn"
+	Error           = "error"
+	Fatal           = "fatal"
+	Panic           = "panic"
 )
 
-// FormatType provides type for logger formats
+// FormatType provided to select logger format
 type FormatType int8
 
 // Types of logger formats
 const (
-	TypeJSONFormat FormatType = iota
-	TypeTextFormat
-	TypeCEFormat
+	JSONFormat FormatType = iota
+	TextFormat            // default
+	CEFormat
 )
 
 var (
-	errInvalidLoggerType = errors.New("Invalid logger type")
-	errNewAsyncProducer  = errors.New("NewAsyncProducer failed")
+	errInvalidLogType = errors.New("Invalid log type")
 )
 
 // Logger is our contract for the logger
@@ -93,7 +92,7 @@ type Logger interface {
 
 // Configuration stores the config for the logger
 type Configuration struct {
-	LogLevel             string
+	LogLevel             LevelType
 	EnableCloudEvents    bool
 	EnableKafka          bool
 	KafkaFormat          FormatType
@@ -108,13 +107,13 @@ type Configuration struct {
 }
 
 // NewLogger returns a Logger instance
-func NewLogger(config Configuration, loggerType LoggerType) (Logger, error) {
-	switch loggerType {
-	case TypeZapLogger:
+func NewLogger(config Configuration, logType LogType) (Logger, error) {
+	switch logType {
+	case Zap:
 		return newZapLogger(config)
-	case TypeLogrusLogger:
+	case Logrus:
 		return newLogrusLogger(config)
 	default:
-		return nil, errInvalidLoggerType
+		return nil, errInvalidLogType
 	}
 }

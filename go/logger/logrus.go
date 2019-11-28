@@ -36,14 +36,9 @@ func (f *ceFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 
 func getFormatter(format FormatType, truncate bool) logrus.Formatter {
 	switch format {
-	case TypeJSONFormat:
+	case JSONFormat:
 		return &logrus.JSONFormatter{}
-	case TypeTextFormat:
-		return &logrus.TextFormatter{
-			FullTimestamp:          true,
-			DisableLevelTruncation: !truncate,
-		}
-	case TypeCEFormat:
+	case CEFormat:
 		return &ceFormatter{
 			logrus.JSONFormatter{
 				TimestampFormat: time.RFC3339,
@@ -54,13 +49,18 @@ func getFormatter(format FormatType, truncate bool) logrus.Formatter {
 				},
 			},
 		}
+	case TextFormat:
+		fallthrough
 	default:
-		return nil
+		return &logrus.TextFormatter{
+			FullTimestamp:          true,
+			DisableLevelTruncation: !truncate,
+		}
 	}
 }
 
 func newLogrusLogger(config Configuration) (Logger, error) {
-	level, err := logrus.ParseLevel(config.LogLevel)
+	level, err := logrus.ParseLevel(string(config.LogLevel))
 	if err != nil {
 		return nil, err
 	}
