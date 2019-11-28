@@ -43,7 +43,7 @@ func main() {
 
 	// try a zap logger
 
-	log, err := logger.NewLogger(config, logger.InstanceZapLogger)
+	log, err := logger.NewLogger(config, logger.TypeZapLogger)
 	if err != nil {
 		fmt.Printf("Could not instantiate zap logger %s", err.Error())
 	} else {
@@ -62,7 +62,7 @@ func main() {
 
 	config.KafkaProducerCfg.CloudeventsID = logger.TypeUUID
 	config.KafkaProducerCfg.Key = logger.LevelKey
-	log, err = logger.NewLogger(config, logger.InstanceLogrusLogger)
+	log, err = logger.NewLogger(config, logger.TypeLogrusLogger)
 	if err != nil {
 		fmt.Printf("Could not instantiate logrus logger %s", err.Error())
 	} else {
@@ -80,7 +80,7 @@ func main() {
 
 	config.KafkaProducerCfg.Key = logger.ExtractedKey
 	config.KafkaProducerCfg.KeyName = "subject"
-	log, err = logger.NewLogger(config, logger.InstanceLogrusLogger)
+	log, err = logger.NewLogger(config, logger.TypeLogrusLogger)
 	if err != nil {
 		fmt.Printf("Could not instantiate logrus logger %s", err.Error())
 	} else {
@@ -91,7 +91,7 @@ func main() {
 	// try setting key to current time in seconds
 
 	config.KafkaProducerCfg.Key = logger.TimeSecondKey
-	log, err = logger.NewLogger(config, logger.InstanceLogrusLogger)
+	log, err = logger.NewLogger(config, logger.TypeLogrusLogger)
 	if err != nil {
 		fmt.Printf("Could not instantiate logrus logger %s", err.Error())
 	} else {
@@ -102,7 +102,7 @@ func main() {
 	// try setting key to current time in nanoseconds
 
 	config.KafkaProducerCfg.Key = logger.TimeNanoSecondKey
-	log, err = logger.NewLogger(config, logger.InstanceLogrusLogger)
+	log, err = logger.NewLogger(config, logger.TypeLogrusLogger)
 	if err != nil {
 		fmt.Printf("Could not instantiate logrus logger %s", err.Error())
 	} else {

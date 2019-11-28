@@ -3,8 +3,6 @@ package logger
 import (
 	"crypto/tls"
 	"encoding/json"
-	"fmt"
-	"os"
 	"strconv"
 	"time"
 
@@ -79,13 +77,13 @@ func NewKafkaProducer(config ProducerConfiguration) (KafkaProducer, error) {
 
 	producer, err := sarama.NewAsyncProducer(config.Brokers, cfg)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "NewAsyncProducer failed", err.Error())
+		return KafkaProducer{}, err
 	}
 
 	return KafkaProducer{
 		producer: producer,
 		config:   config,
-	}, err
+	}, nil
 }
 
 func (kp *KafkaProducer) sendMessage(msg []byte) error {

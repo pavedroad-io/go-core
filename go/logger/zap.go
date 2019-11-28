@@ -65,7 +65,7 @@ func newZapLogger(config Configuration) (Logger, error) {
 		// create an async producer
 		kafkaProducer, err := NewKafkaProducer(config.KafkaProducerCfg)
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "NewKafkaProducer failed", err.Error())
+			return nil, err
 		}
 		writer := NewZapWriter(config.KafkaProducerCfg, kafkaProducer)
 		core := zapcore.NewCore(getEncoder(config.KafkaFormat), writer, level)

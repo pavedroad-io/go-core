@@ -4,10 +4,7 @@ package logger
 
 import "errors"
 
-// A global variable so that log functions can be directly accessed
-var log Logger
-
-//Fields Type to pass when we want to call WithFields for structured logging
+// Fields provides type used in calling WithFields for structured logging
 type Fields map[string]interface{}
 
 const (
@@ -23,14 +20,17 @@ const (
 	Fatal = "fatal"
 )
 
+// LoggerType provide types of loggers
+type LoggerType int8
+
 // Types of loggers
 const (
-	InstanceZapLogger int = iota
-	InstanceLogrusLogger
+	TypeZapLogger LoggerType = iota
+	TypeLogrusLogger
 )
 
 // FormatType provides type for logger formats
-type FormatType int
+type FormatType int8
 
 // Types of logger formats
 const (
@@ -40,10 +40,11 @@ const (
 )
 
 var (
-	errInvalidLoggerInstance = errors.New("Invalid logger instance")
+	errInvalidLoggerType = errors.New("Invalid logger type")
+	errNewAsyncProducer  = errors.New("NewAsyncProducer failed")
 )
 
-//Logger is our contract for the logger
+// Logger is our contract for the logger
 type Logger interface {
 	Print(args ...interface{})
 
@@ -91,7 +92,6 @@ type Logger interface {
 }
 
 // Configuration stores the config for the logger
-// For some loggers there can only be one level across writers, for such the level of Console is picked by default
 type Configuration struct {
 	LogLevel             string
 	EnableCloudEvents    bool
@@ -107,26 +107,14 @@ type Configuration struct {
 	FileLocation         string
 }
 
-//NewLogger returns an instance of logger
-func NewLogger(config Configuration, loggerInstance int) (Logger, error) {
-	switch loggerInstance {
-	case InstanceZapLogger:
-		logger, err := newZapLogger(config)
-		if err != nil {
-			return nil, err
-		}
-		log = logger
-		return logger, nil
-
-	case InstanceLogrusLogger:
-		logger, err := newLogrusLogger(config)
-		if err != nil {
-			return nil, err
-		}
-		log = logger
-		return logger, nil
-
+// NewLogger returns a Logger instance
+func NewLogger(config Configuration, loggerType LoggerType) (Logger, error) {
+	switch loggerType {
+	case TypeZapLogger:
+		return newZapLogger(config)
+	case TypeLogrusLogger:
+		return newLogrusLogger(config)
 	default:
-		return nil, errInvalidLoggerInstance
+		return nil, errInvalidLoggerType
 	}
 }

@@ -3,7 +3,6 @@
 package logger
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"time"
@@ -93,7 +92,7 @@ func newLogrusLogger(config Configuration) (Logger, error) {
 		// create an async producer
 		kafkaProducer, err := NewKafkaProducer(config.KafkaProducerCfg)
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "NewKafkaProducer failed", err.Error())
+			return nil, err
 		}
 
 		// create the Kafka hook
