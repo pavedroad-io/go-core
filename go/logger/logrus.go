@@ -93,14 +93,10 @@ func newLogrusLogger(config Configuration) (Logger, error) {
 	}
 
 	if config.EnableKafka {
-		// create an async producer
-		kafkaProducer, err := NewKafkaProducer(config.KafkaProducerCfg)
+		hook, err := newLogrusHook(config.KafkaProducerCfg, getFormatter(config.KafkaFormat, true))
 		if err != nil {
 			return nil, err
 		}
-
-		// create the Kafka hook
-		hook := NewLogrusHook(config.KafkaProducerCfg).WithFormatter(getFormatter(config.KafkaFormat, true)).WithProducer(kafkaProducer)
 
 		// add the hook
 		lLogger.Hooks.Add(hook)

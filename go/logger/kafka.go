@@ -64,7 +64,7 @@ type ProducerConfiguration struct {
 	AckWait       ackWaitType
 	FlushFreq     time.Duration
 	EnableTLS     bool
-	TLSCfg        tls.Config
+	TLSCfg        *tls.Config
 }
 
 // KafkaProducer wraps sarama producer with config
@@ -73,8 +73,8 @@ type KafkaProducer struct {
 	config   ProducerConfiguration
 }
 
-// NewKafkaProducer returns a kafka producer instance
-func NewKafkaProducer(config ProducerConfiguration) (KafkaProducer, error) {
+// newKafkaProducer returns a kafka producer instance
+func newKafkaProducer(config ProducerConfiguration) (*KafkaProducer, error) {
 	cfg := sarama.NewConfig()
 	cfg.Producer.Flush.Frequency = config.FlushFreq * time.Millisecond
 	cfg.Producer.Return.Successes = false
@@ -119,15 +119,15 @@ func NewKafkaProducer(config ProducerConfiguration) (KafkaProducer, error) {
 
 	if config.EnableTLS {
 		cfg.Net.TLS.Enable = true
-		cfg.Net.TLS.Config = &config.TLSCfg
+		cfg.Net.TLS.Config = config.TLSCfg
 	}
 
 	producer, err := sarama.NewAsyncProducer(config.Brokers, cfg)
 	if err != nil {
-		return KafkaProducer{}, err
+		return &KafkaProducer{}, err
 	}
 
-	return KafkaProducer{
+	return &KafkaProducer{
 		producer: producer,
 		config:   config,
 	}, nil

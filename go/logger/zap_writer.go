@@ -9,21 +9,27 @@ import (
 )
 
 // ZapWriter is an io.Writer that writes messages to Kafka, ignoring any responses
-// The AsyncProducer passed to NewZapWriter must have:
+// The AsyncProducer passed to newZapWriter must have:
 //    Config.Return.Successes == false
 //    Config.Return.Errors == false
 type ZapWriter struct {
 	cfg       ProducerConfiguration
-	kp        KafkaProducer
+	kp        *KafkaProducer
 	closed    int32          // nonzero if the writer has started closing. Must be accessed atomically
 	pendingWg sync.WaitGroup // WaitGroup for pending messages
 	closeMut  sync.Mutex
 }
 
-// NewZapWriter returns a kafka io.writer instance
-func NewZapWriter(cfg ProducerConfiguration, kp KafkaProducer) *ZapWriter {
+// newZapWriter returns a kafka io.writer instance
+func newZapWriter(cfg ProducerConfiguration) (*ZapWriter, error) {
+	// create an async producer
+	kp, err := newKafkaProducer(cfg)
+	if err != nil {
+		return nil, err
+	}
+
 	zw := &ZapWriter{cfg: cfg, kp: kp}
-	return zw
+	return zw, nil
 }
 
 // Sync does nothing for now

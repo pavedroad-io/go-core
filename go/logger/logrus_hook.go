@@ -4,8 +4,6 @@ package logger
 
 import (
 	"errors"
-	"fmt"
-	"os"
 
 	"github.com/sirupsen/logrus"
 )
@@ -13,45 +11,26 @@ import (
 // LogrusHook represents a logrus hook for Kafka
 type LogrusHook struct {
 	config    ProducerConfiguration
-	kp        KafkaProducer
+	kp        *KafkaProducer
 	formatter logrus.Formatter
 	levels    []logrus.Level
 }
 
-// NewLogrusHook returns a kafka producer hook instance
-func NewLogrusHook(config ProducerConfiguration) *LogrusHook {
+// newLogrusHook returns a kafka producer hook instance
+func newLogrusHook(cfg ProducerConfiguration, fmt logrus.Formatter) (*LogrusHook, error) {
+	// create an async producer
+	kafkaProducer, err := newKafkaProducer(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	// create the Kafka hook
 	return &LogrusHook{
-		config:    config,
-		formatter: new(logrus.TextFormatter),
+		config:    cfg,
+		kp:        kafkaProducer,
+		formatter: fmt,
 		levels:    logrus.AllLevels,
-	}
-}
-
-// WithFormatter adds a formatter to the created Hook
-func (h *LogrusHook) WithFormatter(formatter logrus.Formatter) *LogrusHook {
-	h.formatter = formatter
-	return h
-}
-
-// WithLevels adds levels to the created Hook
-func (h *LogrusHook) WithLevels(levels []logrus.Level) *LogrusHook {
-	h.levels = levels
-	return h
-}
-
-// WithProducer adds a producer to the created Hook
-func (h *LogrusHook) WithProducer(producer KafkaProducer) *LogrusHook {
-	h.kp = producer
-
-	if h.kp.producer != nil {
-		go func() {
-			for err := range h.kp.producer.Errors() {
-				fmt.Fprintln(os.Stderr, "Producer error", err.Error())
-			}
-		}()
-	}
-
-	return h
+	}, nil
 }
 
 /*

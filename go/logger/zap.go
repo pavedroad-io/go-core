@@ -69,12 +69,10 @@ func newZapLogger(config Configuration) (Logger, error) {
 
 	if config.EnableKafka {
 		level := getZapLevel(config.LogLevel)
-		// create an async producer
-		kafkaProducer, err := NewKafkaProducer(config.KafkaProducerCfg)
+		writer, err := newZapWriter(config.KafkaProducerCfg)
 		if err != nil {
 			return nil, err
 		}
-		writer := NewZapWriter(config.KafkaProducerCfg, kafkaProducer)
 		core := zapcore.NewCore(getEncoder(config.KafkaFormat), writer, level)
 		// core = zapcore.RegisterHooks(core, zapHook)
 		cores = append(cores, core)
