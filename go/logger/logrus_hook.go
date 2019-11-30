@@ -1,4 +1,4 @@
-// from github.com/kenjones-cisco/logrus-kafka-hook/hook.go
+// Credit to github.com/kenjones-cisco/logrus-kafka-hook/hook.go
 
 package logger
 

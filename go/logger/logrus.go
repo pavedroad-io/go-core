@@ -1,4 +1,4 @@
-// from github.com/amitrai48/logger/logrus.go
+// Credit to github.com/amitrai48/logger/logrus.go
 
 package logger
 
@@ -11,12 +11,14 @@ import (
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
 )
 
-type logrusLogEntry struct {
-	entry *logrus.Entry
-}
-
+// logrus logger
 type logrusLogger struct {
 	logger *logrus.Logger
+}
+
+// logrus logger using Entry for WithFields
+type logrusLogEntry struct {
+	entry *logrus.Entry
 }
 
 // cloudevents formatter
@@ -24,7 +26,7 @@ type ceFormatter struct {
 	logrus.JSONFormatter
 }
 
-// override the Format method for cloudevents
+// Format overrides the Format method for cloudevents
 func (f *ceFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	// TODO may no longer need this as msg now modified in sendMessage
 	msg, err := f.JSONFormatter.Format(entry)
@@ -34,6 +36,7 @@ func (f *ceFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	return msg, nil
 }
 
+// getFormatter returns a logrus formatter
 func getFormatter(format FormatType, truncate bool) logrus.Formatter {
 	switch format {
 	case JSONFormat:
@@ -59,6 +62,7 @@ func getFormatter(format FormatType, truncate bool) logrus.Formatter {
 	}
 }
 
+// newLogrusLogger return a logrus logger instance
 func newLogrusLogger(config Configuration) (Logger, error) {
 	level, err := logrus.ParseLevel(string(config.LogLevel))
 	if err != nil {
@@ -113,6 +117,8 @@ func newLogrusLogger(config Configuration) (Logger, error) {
 		logger: lLogger,
 	}, nil
 }
+
+// The following meet the contract for the logger
 
 func (l *logrusLogger) Print(args ...interface{}) {
 	l.logger.Print(args...)
@@ -198,6 +204,7 @@ func (l *logrusLogger) Panicln(args ...interface{}) {
 	l.logger.Panicln(args...)
 }
 
+// WithFields converts logger to logger with Entry
 func (l *logrusLogger) WithFields(fields Fields) Logger {
 	return &logrusLogEntry{
 		entry: l.logger.WithFields(convertToLogrusFields(fields)),

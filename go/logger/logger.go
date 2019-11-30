@@ -1,4 +1,4 @@
-// from github.com/amitrai48/logger/logger.go
+// Credit to github.com/amitrai48/logger/logger.go
 
 package logger
 
@@ -36,12 +36,24 @@ type FormatType int8
 const (
 	JSONFormat FormatType = iota
 	TextFormat            // default
-	CEFormat
+	CEFormat              // cloudevents
 )
 
 var (
 	errInvalidLogType = errors.New("Invalid log type")
 )
+
+// NewLogger returns a Logger instance
+func NewLogger(config Configuration, logType LogType) (Logger, error) {
+	switch logType {
+	case Zap:
+		return newZapLogger(config)
+	case Logrus:
+		return newLogrusLogger(config)
+	default:
+		return nil, errInvalidLogType
+	}
+}
 
 // Logger is our contract for the logger
 type Logger interface {
@@ -104,16 +116,4 @@ type Configuration struct {
 	FileFormat           FormatType
 	FileLevelTruncate    bool
 	FileLocation         string
-}
-
-// NewLogger returns a Logger instance
-func NewLogger(config Configuration, logType LogType) (Logger, error) {
-	switch logType {
-	case Zap:
-		return newZapLogger(config)
-	case Logrus:
-		return newLogrusLogger(config)
-	default:
-		return nil, errInvalidLogType
-	}
 }

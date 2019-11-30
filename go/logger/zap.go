@@ -1,4 +1,4 @@
-// from github.com/amitrai48/logger/zap.go
+// Credit to github.com/amitrai48/logger/zap.go
 
 package logger
 
@@ -11,10 +11,12 @@ import (
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
 )
 
+// zapLogger represents a zap sugar logger
 type zapLogger struct {
 	sugaredLogger *zap.SugaredLogger
 }
 
+// getEncoder returns a zap encoder
 func getEncoder(format FormatType) zapcore.Encoder {
 	encoderConfig := zap.NewProductionEncoderConfig()
 	encoderConfig.EncodeTime = zapcore.RFC3339TimeEncoder
@@ -35,6 +37,7 @@ func getEncoder(format FormatType) zapcore.Encoder {
 	}
 }
 
+// getZapLevel converts log level to zap log level
 func getZapLevel(level LevelType) zapcore.Level {
 	switch level {
 	case Debug:
@@ -54,12 +57,13 @@ func getZapLevel(level LevelType) zapcore.Level {
 	}
 }
 
-// Temporary hook for testing
+// zapHook is a temporary hook for testing
 func zapHook(entry zapcore.Entry) error {
 	fmt.Printf("ZapHook: entry <%+v>\n", entry)
 	return nil
 }
 
+// newZapLogger returns a zap logger instance
 func newZapLogger(config Configuration) (Logger, error) {
 	cores := []zapcore.Core{}
 
@@ -109,6 +113,8 @@ func newZapLogger(config Configuration) (Logger, error) {
 		sugaredLogger: logger,
 	}, nil
 }
+
+// The following meet the contract for the logger
 
 func (l *zapLogger) Print(args ...interface{}) {
 	l.sugaredLogger.Info(args...)

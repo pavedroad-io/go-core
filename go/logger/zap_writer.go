@@ -1,4 +1,4 @@
-// from github.com/ORBAT/krater/unsafe_writer.go
+// Credit to github.com/ORBAT/krater/unsafe_writer.go
 
 package logger
 
@@ -8,12 +8,10 @@ import (
 	"syscall"
 )
 
-// ZapWriter is an io.Writer that writes messages to Kafka, ignoring any error responses sent by the brokers.
-// Parallel calls to Write / ReadFrom are safe.
-//
-// The AsyncProducer passed to NewZapWriter must have Config.Return.Successes == false and Config.Return.Errors == false
-//
-// Close() must be called when the writer is no longer needed.
+// ZapWriter is an io.Writer that writes messages to Kafka, ignoring any responses
+// The AsyncProducer passed to NewZapWriter must have:
+//    Config.Return.Successes == false
+//    Config.Return.Errors == false
 type ZapWriter struct {
 	cfg       ProducerConfiguration
 	kp        KafkaProducer
@@ -33,9 +31,7 @@ func (zw *ZapWriter) Sync() error {
 	return nil
 }
 
-// Write writes byte slices to Kafka without checking for error responses.
-// Trying to Write to a closed writer will return syscall.EINVAL. Thread-safe.
-//
+// Write writes byte slices to Kafka ignoring error responses. (Thread-safe.)
 // Write might block if the Input() channel of the underlying AsyncProducer is full.
 func (zw *ZapWriter) Write(msg []byte) (int, error) {
 	if zw.Closed() {
@@ -49,13 +45,12 @@ func (zw *ZapWriter) Write(msg []byte) (int, error) {
 	return len(msg), err
 }
 
-// Closed returns true if the ZapWriter has been closed, false otherwise. Thread-safe.
+// Closed returns true if ZapWriter is closed, false otherwise (Thread-safe)
 func (zw *ZapWriter) Closed() bool {
 	return atomic.LoadInt32(&zw.closed) != 0
 }
 
-// Close closes the writer.
-// If the writer has already been closed, Close will return syscall.EINVAL. Thread-safe.
+// Close must be called when the writer is no longer needed (Thread-safe)
 func (zw *ZapWriter) Close() (err error) {
 	zw.closeMut.Lock()
 	defer zw.closeMut.Unlock()
