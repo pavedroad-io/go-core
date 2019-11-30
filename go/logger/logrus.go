@@ -1,4 +1,4 @@
-// Credit to github.com/amitrai48/logger/logrus.go
+// Based on github.com/amitrai48/logger/logrus.go
 
 package logger
 
@@ -11,17 +11,17 @@ import (
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
 )
 
-// logrus logger
+// logrusLogger provides object for logrus logger
 type logrusLogger struct {
 	logger *logrus.Logger
 }
 
-// logrus logger using Entry for WithFields
+// logrusLogEntry provides object for logrus logger with Entry set by WithFields
 type logrusLogEntry struct {
 	entry *logrus.Entry
 }
 
-// cloudevents formatter
+// ceFormatter provides the cloudevents formatter type
 type ceFormatter struct {
 	logrus.JSONFormatter
 }
@@ -291,12 +291,14 @@ func (l *logrusLogEntry) Panicln(args ...interface{}) {
 	l.entry.Panicln(args...)
 }
 
+// WithFields add more fields to logger with Entry
 func (l *logrusLogEntry) WithFields(fields Fields) Logger {
 	return &logrusLogEntry{
 		entry: l.entry.WithFields(convertToLogrusFields(fields)),
 	}
 }
 
+// convertToLogrusFields converts fields to logrus type
 func convertToLogrusFields(fields Fields) logrus.Fields {
 	logrusFields := logrus.Fields{}
 	for index, val := range fields {

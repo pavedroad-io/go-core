@@ -3,24 +3,27 @@ package logger
 import (
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"strconv"
 	"time"
 
 	"github.com/Shopify/sarama"
 )
 
+// kafkaPartitionType provides kafka partition type
 type kafkaPartitionType int8
 
-// Types of kafka partitioning
+// Types of kafka partitioning to map to sarama
 const (
 	RandomPartition kafkaPartitionType = iota // default
 	HashPartition
 	RoundRobinPartition
 )
 
+// kafkaKeyType provides kafka key type
 type kafkaKeyType int8
 
-// Types of kafka keys
+// Types of kafka keys to map to sarama
 const (
 	LevelKey kafkaKeyType = iota // default
 	TimeSecondKey
@@ -29,9 +32,10 @@ const (
 	ExtractedKey
 )
 
+// compressionType provides kafka compression type
 type compressionType int8
 
-// Types of compression
+// Types of compression to map to sarama
 const (
 	CompressionNone compressionType = iota // default
 	CompressionGZIP
@@ -40,9 +44,10 @@ const (
 	CompressionZSTD
 )
 
+// ackWaitType provides kafka ackknowledgement wait type
 type ackWaitType int8
 
-// Types of ack waiting
+// Types of ack waiting to map to sarama
 const (
 	// WaitForNone does not wait for any response
 	WaitForNone ackWaitType = iota
@@ -52,7 +57,7 @@ const (
 	WaitForAll
 )
 
-// ProducerConfiguration provides kafka producer configuration
+// ProducerConfiguration provides kafka producer configuration type
 type ProducerConfiguration struct {
 	Brokers       []string
 	Topic         string
@@ -133,6 +138,7 @@ func newKafkaProducer(config ProducerConfiguration) (*KafkaProducer, error) {
 	}, nil
 }
 
+// sendMessage adds key and cloudevents ID before sending message to kafka
 func (kp *KafkaProducer) sendMessage(msg []byte) error {
 	var msgMap map[string]interface{}
 
@@ -148,8 +154,11 @@ func (kp *KafkaProducer) sendMessage(msg []byte) error {
 	case FixedKey:
 		key = sarama.StringEncoder(kp.config.KeyName)
 	case ExtractedKey:
-		// TODO fails if key is not in message
-		key = sarama.StringEncoder(msgMap[kp.config.KeyName].(string))
+		if name, ok := msgMap[kp.config.KeyName].(string); ok {
+			key = sarama.StringEncoder(name)
+		} else {
+			return errors.New("Extracted key missing")
+		}
 	case TimeSecondKey:
 		key = sarama.StringEncoder(strconv.Itoa(int(time.Now().Unix())))
 	case TimeNanoSecondKey:

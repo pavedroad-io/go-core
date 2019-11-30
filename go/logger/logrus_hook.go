@@ -1,4 +1,4 @@
-// Credit to github.com/kenjones-cisco/logrus-kafka-hook/hook.go
+// Based on github.com/kenjones-cisco/logrus-kafka-hook/hook.go
 
 package logger
 
@@ -8,7 +8,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// LogrusHook represents a logrus hook for Kafka
+// LogrusHook provides a logrus hook for Kafka
 type LogrusHook struct {
 	config    ProducerConfiguration
 	kp        *KafkaProducer
@@ -54,7 +54,7 @@ func (h *LogrusHook) Fire(entry *logrus.Entry) error {
 	}
 
 	if h.kp.producer == nil {
-		return errors.New("no producer defined")
+		return errors.New("No producer defined")
 	}
 
 	return h.kp.sendMessage(msg)

@@ -1,4 +1,4 @@
-// Credit to github.com/amitrai48/logger/logger.go
+// Based on github.com/amitrai48/logger/logger.go
 
 package logger
 
@@ -6,15 +6,6 @@ import "errors"
 
 // Fields provided for calls to WithFields for structured logging
 type Fields map[string]interface{}
-
-// LogType provided to select underlying log package
-type LogType int8
-
-// Supported log packages
-const (
-	Zap LogType = iota
-	Logrus
-)
 
 // LevelType provided to select log level
 type LevelType string
@@ -39,8 +30,29 @@ const (
 	CEFormat              // cloudevents
 )
 
-var (
-	errInvalidLogType = errors.New("Invalid log type")
+// Configuration stores the config for the logger
+type Configuration struct {
+	LogLevel             LevelType
+	EnableCloudEvents    bool
+	EnableKafka          bool
+	KafkaFormat          FormatType
+	KafkaProducerCfg     ProducerConfiguration
+	EnableConsole        bool
+	ConsoleFormat        FormatType
+	ConsoleLevelTruncate bool
+	EnableFile           bool
+	FileFormat           FormatType
+	FileLevelTruncate    bool
+	FileLocation         string
+}
+
+// LogType provided to select underlying log package
+type LogType int8
+
+// Supported log packages
+const (
+	Zap LogType = iota
+	Logrus
 )
 
 // NewLogger returns a Logger instance
@@ -51,11 +63,11 @@ func NewLogger(config Configuration, logType LogType) (Logger, error) {
 	case Logrus:
 		return newLogrusLogger(config)
 	default:
-		return nil, errInvalidLogType
+		return nil, errors.New("Invalid log type")
 	}
 }
 
-// Logger is our contract for the logger
+// Logger is the contract for the logger interface
 type Logger interface {
 	Print(args ...interface{})
 
@@ -100,20 +112,4 @@ type Logger interface {
 	Panicln(args ...interface{})
 
 	WithFields(keyValues Fields) Logger
-}
-
-// Configuration stores the config for the logger
-type Configuration struct {
-	LogLevel             LevelType
-	EnableCloudEvents    bool
-	EnableKafka          bool
-	KafkaFormat          FormatType
-	KafkaProducerCfg     ProducerConfiguration
-	EnableConsole        bool
-	ConsoleFormat        FormatType
-	ConsoleLevelTruncate bool
-	EnableFile           bool
-	FileFormat           FormatType
-	FileLevelTruncate    bool
-	FileLocation         string
 }

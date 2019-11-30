@@ -1,10 +1,11 @@
-// Credit to github.com/amitrai48/logger/zap.go
+// Based on github.com/amitrai48/logger/zap.go
 
 package logger
 
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -65,10 +66,10 @@ func zapHook(entry zapcore.Entry) error {
 
 // newZapLogger returns a zap logger instance
 func newZapLogger(config Configuration) (Logger, error) {
+	level := getZapLevel(config.LogLevel)
 	cores := []zapcore.Core{}
 
 	if config.EnableKafka {
-		level := getZapLevel(config.LogLevel)
 		writer, err := newZapWriter(config.KafkaProducerCfg)
 		if err != nil {
 			return nil, err
@@ -79,14 +80,12 @@ func newZapLogger(config Configuration) (Logger, error) {
 	}
 
 	if config.EnableConsole {
-		level := getZapLevel(config.LogLevel)
 		writer := zapcore.Lock(os.Stdout)
 		core := zapcore.NewCore(getEncoder(config.ConsoleFormat), writer, level)
 		cores = append(cores, core)
 	}
 
 	if config.EnableFile {
-		level := getZapLevel(config.LogLevel)
 		writer := zapcore.AddSync(&lumberjack.Logger{
 			Filename: config.FileLocation,
 			MaxSize:  100,
@@ -106,13 +105,12 @@ func newZapLogger(config Configuration) (Logger, error) {
 		}
 		return zaplogger.WithFields(ceFields), nil
 	}
-
 	return &zapLogger{
 		sugaredLogger: logger,
 	}, nil
 }
 
-// The following meet the contract for the logger
+// The following methods meet the contract for the logger interface
 
 func (l *zapLogger) Print(args ...interface{}) {
 	l.sugaredLogger.Info(args...)
@@ -123,7 +121,7 @@ func (l *zapLogger) Printf(format string, args ...interface{}) {
 }
 
 func (l *zapLogger) Println(args ...interface{}) {
-	l.sugaredLogger.Info(fmt.Sprintln(args...))
+	l.sugaredLogger.Info(strings.TrimRight(fmt.Sprintln(args...), "\n"))
 }
 
 func (l *zapLogger) Debug(args ...interface{}) {
@@ -135,7 +133,7 @@ func (l *zapLogger) Debugf(format string, args ...interface{}) {
 }
 
 func (l *zapLogger) Debugln(args ...interface{}) {
-	l.sugaredLogger.Debug(fmt.Sprintln(args...))
+	l.sugaredLogger.Debug(strings.TrimRight(fmt.Sprintln(args...), "\n"))
 }
 
 func (l *zapLogger) Info(args ...interface{}) {
@@ -147,7 +145,7 @@ func (l *zapLogger) Infof(format string, args ...interface{}) {
 }
 
 func (l *zapLogger) Infoln(args ...interface{}) {
-	l.sugaredLogger.Info(fmt.Sprintln(args...))
+	l.sugaredLogger.Info(strings.TrimRight(fmt.Sprintln(args...), "\n"))
 }
 
 func (l *zapLogger) Warn(args ...interface{}) {
@@ -159,7 +157,7 @@ func (l *zapLogger) Warnf(format string, args ...interface{}) {
 }
 
 func (l *zapLogger) Warnln(args ...interface{}) {
-	l.sugaredLogger.Warn(fmt.Sprintln(args...))
+	l.sugaredLogger.Warn(strings.TrimRight(fmt.Sprintln(args...), "\n"))
 }
 
 func (l *zapLogger) Error(args ...interface{}) {
@@ -171,7 +169,7 @@ func (l *zapLogger) Errorf(format string, args ...interface{}) {
 }
 
 func (l *zapLogger) Errorln(args ...interface{}) {
-	l.sugaredLogger.Error(fmt.Sprintln(args...))
+	l.sugaredLogger.Error(strings.TrimRight(fmt.Sprintln(args...), "\n"))
 }
 
 func (l *zapLogger) Fatal(args ...interface{}) {
@@ -183,7 +181,7 @@ func (l *zapLogger) Fatalf(format string, args ...interface{}) {
 }
 
 func (l *zapLogger) Fatalln(args ...interface{}) {
-	l.sugaredLogger.Fatal(fmt.Sprintln(args...))
+	l.sugaredLogger.Fatal(strings.TrimRight(fmt.Sprintln(args...), "\n"))
 }
 
 func (l *zapLogger) Panic(args ...interface{}) {
@@ -195,9 +193,10 @@ func (l *zapLogger) Panicf(format string, args ...interface{}) {
 }
 
 func (l *zapLogger) Panicln(args ...interface{}) {
-	l.sugaredLogger.Panic(fmt.Sprintln(args...))
+	l.sugaredLogger.Panic(strings.TrimRight(fmt.Sprintln(args...), "\n"))
 }
 
+// WithFields add fixed fileds to each log record
 func (l *zapLogger) WithFields(fields Fields) Logger {
 	var f = make([]interface{}, 0)
 	for k, v := range fields {

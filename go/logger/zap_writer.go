@@ -1,8 +1,9 @@
-// Credit to github.com/ORBAT/krater/unsafe_writer.go
+// Based on github.com/ORBAT/krater/unsafe_writer.go
 
 package logger
 
 import (
+	"errors"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -15,7 +16,7 @@ import (
 type ZapWriter struct {
 	cfg       ProducerConfiguration
 	kp        *KafkaProducer
-	closed    int32          // nonzero if the writer has started closing. Must be accessed atomically
+	closed    int32          // Nonzero if closing started, must be accessed atomically
 	pendingWg sync.WaitGroup // WaitGroup for pending messages
 	closeMut  sync.Mutex
 }
@@ -37,11 +38,15 @@ func (zw *ZapWriter) Sync() error {
 	return nil
 }
 
-// Write writes byte slices to Kafka ignoring error responses. (Thread-safe.)
-// Write might block if the Input() channel of the underlying AsyncProducer is full.
+// Write writes byte slices to Kafka ignoring error responses (Thread-safe)
+// Write might block if the Input() channel of the underlying AsyncProducer is full
 func (zw *ZapWriter) Write(msg []byte) (int, error) {
 	if zw.Closed() {
 		return 0, syscall.EINVAL
+	}
+
+	if zw.kp.producer == nil {
+		return 0, errors.New("No producer defined")
 	}
 
 	zw.pendingWg.Add(1)

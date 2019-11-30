@@ -8,6 +8,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
+// ceKey provides cloudevents key type
 type ceKey string
 
 // Keys for cloudevents fields
@@ -21,7 +22,8 @@ const (
 	ceVersionKey       = "specversion"
 )
 
-type ceIDType int
+// ceIDType provides cloudevents id field type
+type ceIDType int8
 
 // Types of cloudevents id fields
 const (
@@ -36,9 +38,9 @@ var ceFields = Fields{
 	ceTypeKey:    "io.pavedroad.cloudevents.log",
 }
 
-// Add the cloudevents ID field to the message (UUID)
-// Other cloudevents fields could be added here based on config
+// KafkaProducer adds the cloudevents id field to the message
 func (kp *KafkaProducer) ceAddFields(msgMap map[string]interface{}) error {
+	// Other cloudevents fields could be added here based on config
 	switch kp.config.CloudeventsID {
 	case UUID:
 		id, err := uuid.NewV4() // RFC4112
