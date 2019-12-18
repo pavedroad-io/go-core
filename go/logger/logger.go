@@ -1,102 +1,115 @@
-// from github.com/amitrai48/logger/logger.go
+// Based on github.com/amitrai48/logger/logger.go
 
 package logger
 
 import "errors"
 
-var log Logger
-
-//Fields Type to pass when we want to call WithFields for structured logging
+// Fields provided for calls to WithFields for structured logging
 type Fields map[string]interface{}
 
+// LevelType provided to select log level
+type LevelType string
+
+// Supported log levels
 const (
-	//Debug has verbose message
-	Debug = "debug"
-	//Info is default log level
-	Info = "info"
-	//Warn is for logging messages about possible issues
-	Warn = "warn"
-	//Error is for logging errors
-	Error = "error"
-	//Fatal is for logging fatal messages. The sytem shutsdown after logging the message.
-	Fatal = "fatal"
+	Debug LevelType = "debug"
+	Info            = "info" // default
+	Warn            = "warn"
+	Error           = "error"
+	Fatal           = "fatal"
+	Panic           = "panic"
 )
 
+// FormatType provided to select logger format
+type FormatType int8
+
+// Types of logger formats
 const (
-	//InstanceZapLogger will be used to create Zap instance for the logger
-	InstanceZapLogger int = iota
+	JSONFormat FormatType = iota
+	TextFormat            // default
+	CEFormat              // cloudevents
 )
 
-var (
-	errInvalidLoggerInstance = errors.New("Invalid logger instance")
+// Configuration stores the config for the logger
+type Configuration struct {
+	LogLevel             LevelType
+	EnableCloudEvents    bool
+	EnableKafka          bool
+	KafkaFormat          FormatType
+	KafkaProducerCfg     ProducerConfiguration
+	EnableConsole        bool
+	ConsoleFormat        FormatType
+	ConsoleLevelTruncate bool
+	EnableFile           bool
+	FileFormat           FormatType
+	FileLevelTruncate    bool
+	FileLocation         string
+}
+
+// LogType provided to select underlying log package
+type LogType int8
+
+// Supported log packages
+const (
+	Zap LogType = iota
+	Logrus
 )
 
-//Logger is our contract for the logger
+// NewLogger returns a Logger instance
+func NewLogger(config Configuration, logType LogType) (Logger, error) {
+	switch logType {
+	case Zap:
+		return newZapLogger(config)
+	case Logrus:
+		return newLogrusLogger(config)
+	default:
+		return nil, errors.New("Invalid log type")
+	}
+}
+
+// Logger is the contract for the logger interface
 type Logger interface {
+	Print(args ...interface{})
+
+	Printf(format string, args ...interface{})
+
+	Println(args ...interface{})
+
+	Debug(args ...interface{})
+
 	Debugf(format string, args ...interface{})
+
+	Debugln(args ...interface{})
+
+	Info(args ...interface{})
 
 	Infof(format string, args ...interface{})
 
+	Infoln(args ...interface{})
+
+	Warn(args ...interface{})
+
 	Warnf(format string, args ...interface{})
+
+	Warnln(args ...interface{})
+
+	Error(args ...interface{})
 
 	Errorf(format string, args ...interface{})
 
+	Errorln(args ...interface{})
+
+	Fatal(args ...interface{})
+
 	Fatalf(format string, args ...interface{})
+
+	Fatalln(args ...interface{})
+
+	Panic(args ...interface{})
 
 	Panicf(format string, args ...interface{})
 
+	Panicln(args ...interface{})
+
 	WithFields(keyValues Fields) Logger
-}
-
-// Configuration stores the config for the Logger
-// For some loggers there can only be one level across writers, for such the level of Console is picked by default
-type Configuration struct {
-	EnableConsole     bool
-	ConsoleJSONFormat bool
-	ConsoleLevel      string
-	EnableFile        bool
-	FileJSONFormat    bool
-	FileLevel         string
-	FileLocation      string
-}
-
-//NewLogger returns an instance of Logger
-func NewLogger(config Configuration, loggerInstance int) error {
-	if loggerInstance == InstanceZapLogger {
-		logger, err := newZapLogger(config)
-		if err != nil {
-			return err
-		}
-		log = logger
-		return nil
-	}
-	return errInvalidLoggerInstance
-}
-
-func Debugf(format string, args ...interface{}) {
-	log.Debugf(format, args...)
-}
-
-func Infof(format string, args ...interface{}) {
-	log.Infof(format, args...)
-}
-
-func Warnf(format string, args ...interface{}) {
-	log.Warnf(format, args...)
-}
-
-func Errorf(format string, args ...interface{}) {
-	log.Errorf(format, args...)
-}
-
-func Fatalf(format string, args ...interface{}) {
-	log.Fatalf(format, args...)
-}
-
-func Panicf(format string, args ...interface{}) {
-	log.Panicf(format, args...)
-}
-
-func WithFields(keyValues Fields) Logger {
-	return log.WithFields(keyValues)
 }
