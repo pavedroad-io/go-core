@@ -25,9 +25,10 @@ const (
 // ceIDType provides cloudevents id field type
 type ceIDType int8
 
+
 // Types of cloudevents id fields
 const (
-	HMAC ceIDType = iota // for de-dupliation
+	HMAC ceIDType = iota // for de-duplication
 	UUID                 // completely unique
 )
 
