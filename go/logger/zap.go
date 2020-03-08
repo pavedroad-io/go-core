@@ -196,7 +196,7 @@ func (l *zapLogger) Panicln(args ...interface{}) {
 	l.sugaredLogger.Panic(strings.TrimRight(fmt.Sprintln(args...), "\n"))
 }
 
-// WithFields add fixed fileds to each log record
+// WithFields add fixed fields to each log record
 func (l *zapLogger) WithFields(fields Fields) Logger {
 	var f = make([]interface{}, 0)
 	for k, v := range fields {

@@ -44,7 +44,7 @@ const (
 	CompressionZSTD
 )
 
-// ackWaitType provides kafka ackknowledgement wait type
+// ackWaitType provides kafka acknowledgment wait type
 type ackWaitType int8
 
 // Types of ack waiting to map to sarama
