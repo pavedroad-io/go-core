@@ -15,7 +15,7 @@ import (
 func main() {
 	user, _ := user.Current()
 	config := logger.Configuration{
-		LogLevel:          logger.Info,
+		LogLevel:          logger.InfoType,
 		EnableCloudEvents: true,
 		EnableKafka:       true,
 		KafkaFormat:       logger.CEFormat,

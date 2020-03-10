@@ -12,12 +12,12 @@ type LevelType string
 
 // Supported log levels
 const (
-	Debug LevelType = "debug"
-	Info            = "info" // default
-	Warn            = "warn"
-	Error           = "error"
-	Fatal           = "fatal"
-	Panic           = "panic"
+	DebugType LevelType = "debug"
+	InfoType            = "info" // default
+	WarnType            = "warn"
+	ErrorType           = "error"
+	FatalType           = "fatal"
+	PanicType           = "panic"
 )
 
 // FormatType provided to select logger format

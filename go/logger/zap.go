@@ -41,17 +41,17 @@ func getEncoder(format FormatType) zapcore.Encoder {
 // getZapLevel converts log level to zap log level
 func getZapLevel(level LevelType) zapcore.Level {
 	switch level {
-	case Debug:
+	case DebugType:
 		return zapcore.DebugLevel
-	case Info:
+	case InfoType:
 		return zapcore.InfoLevel
-	case Warn:
+	case WarnType:
 		return zapcore.WarnLevel
-	case Error:
+	case ErrorType:
 		return zapcore.ErrorLevel
-	case Fatal:
+	case FatalType:
 		return zapcore.FatalLevel
-	case Panic:
+	case PanicType:
 		return zapcore.PanicLevel
 	default:
 		return zapcore.InfoLevel
