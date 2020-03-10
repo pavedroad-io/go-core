@@ -16,6 +16,7 @@ var log Logger
 
 func defaultLoggerCfg() Configuration {
 	return Configuration{
+		LogPackage:           LogrusType,
 		LogLevel:             InfoType,
 		EnableCloudEvents:    true,
 		EnableKafka:          false,
@@ -67,14 +68,10 @@ func init() {
 	}
 
 	var err error
-	logtype := os.Getenv("PRLOG_LOGTYPE")
-	if logtype == "Zap" {
-		log, err = NewLogger(*config, Zap)
-	} else {
-		log, err = NewLogger(*config, Logrus)
-	}
+	log, err = NewLogger(*config)
 	if err != nil {
-		fmt.Printf("Could not instantiate %s logger %s", logtype, err.Error())
+		fmt.Printf("Could not instantiate %s logger package %s",
+			config.LogPackage, err.Error())
 	}
 }
 

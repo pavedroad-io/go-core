@@ -7,6 +7,15 @@ import "errors"
 // Fields provided for calls to WithFields for structured logging
 type Fields map[string]interface{}
 
+// PackageType provided to select underlying log package
+type PackageType string
+
+// Supported log packages
+const (
+	ZapType    PackageType = "zap"
+	LogrusType             = "logrus"
+)
+
 // LevelType provided to select log level
 type LevelType string
 
@@ -32,6 +41,7 @@ const (
 
 // Configuration stores the config for the logger
 type Configuration struct {
+	LogPackage           PackageType
 	LogLevel             LevelType
 	EnableCloudEvents    bool
 	EnableKafka          bool
@@ -46,21 +56,12 @@ type Configuration struct {
 	FileLocation         string
 }
 
-// LogType provided to select underlying log package
-type LogType string
-
-// Supported log packages
-const (
-	Zap    LogType = "zap"
-	Logrus         = "logrus"
-)
-
 // NewLogger returns a Logger instance
-func NewLogger(config Configuration, logType LogType) (Logger, error) {
-	switch logType {
-	case Zap:
+func NewLogger(config Configuration) (Logger, error) {
+	switch config.LogPackage {
+	case ZapType:
 		return newZapLogger(config)
-	case Logrus:
+	case LogrusType:
 		return newLogrusLogger(config)
 	default:
 		return nil, errors.New("Invalid log type")
