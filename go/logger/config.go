@@ -74,7 +74,7 @@ func init() {
 		log, err = NewLogger(*config, Logrus)
 	}
 	if err != nil {
-		fmt.Printf("Could not instantiate logrus logger %s", err.Error())
+		fmt.Printf("Could not instantiate %s logger %s", logtype, err.Error())
 	}
 }
 

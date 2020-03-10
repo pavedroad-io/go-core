@@ -21,13 +21,13 @@ const (
 )
 
 // FormatType provided to select logger format
-type FormatType int8
+type FormatType string
 
 // Types of logger formats
 const (
-	JSONFormat FormatType = iota
-	TextFormat            // default
-	CEFormat              // cloudevents
+	JSONFormat FormatType = "json"
+	TextFormat            = "text" // default
+	CEFormat              = "cloudevents"
 )
 
 // Configuration stores the config for the logger
@@ -47,12 +47,12 @@ type Configuration struct {
 }
 
 // LogType provided to select underlying log package
-type LogType int8
+type LogType string
 
 // Supported log packages
 const (
-	Zap LogType = iota
-	Logrus
+	Zap    LogType = "zap"
+	Logrus         = "logrus"
 )
 
 // NewLogger returns a Logger instance

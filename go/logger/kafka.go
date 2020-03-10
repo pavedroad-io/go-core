@@ -11,50 +11,50 @@ import (
 )
 
 // kafkaPartitionType provides kafka partition type
-type kafkaPartitionType int8
+type kafkaPartitionType string
 
 // Types of kafka partitioning to map to sarama
 const (
-	RandomPartition kafkaPartitionType = iota // default
-	HashPartition
-	RoundRobinPartition
+	RandomPartition     kafkaPartitionType = "random" // default
+	HashPartition                          = "hash"
+	RoundRobinPartition                    = "roundrobin"
 )
 
 // kafkaKeyType provides kafka key type
-type kafkaKeyType int8
+type kafkaKeyType string
 
 // Types of kafka keys to map to sarama
 const (
-	LevelKey kafkaKeyType = iota // default
-	TimeSecondKey
-	TimeNanoSecondKey
-	FixedKey
-	ExtractedKey
+	LevelKey          kafkaKeyType = "level" // default
+	TimeSecondKey                  = "second"
+	TimeNanoSecondKey              = "nanosecond"
+	FixedKey                       = "fixed"
+	ExtractedKey                   = "extracted"
 )
 
 // compressionType provides kafka compression type
-type compressionType int8
+type compressionType string
 
 // Types of compression to map to sarama
 const (
-	CompressionNone compressionType = iota // default
-	CompressionGZIP
-	CompressionSnappy
-	CompressionLZ4
-	CompressionZSTD
+	CompressionNone   compressionType = "none" // default
+	CompressionGZIP                   = "gzip"
+	CompressionSnappy                 = "snappy"
+	CompressionLZ4                    = "lz4"
+	CompressionZSTD                   = "zstd"
 )
 
 // ackWaitType provides kafka acknowledgment wait type
-type ackWaitType int8
+type ackWaitType string
 
 // Types of ack waiting to map to sarama
 const (
 	// WaitForNone does not wait for any response
-	WaitForNone ackWaitType = iota
+	WaitForNone ackWaitType = "none"
 	// WaitForLocal waits for only the local commit to succeed
-	WaitForLocal // default
+	WaitForLocal = "local" // default
 	// WaitForAll waits for all in-sync replicas to commit
-	WaitForAll
+	WaitForAll = "all"
 )
 
 // ProducerConfiguration provides kafka producer configuration type
