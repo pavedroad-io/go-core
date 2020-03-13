@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 
 	"os/user"
@@ -12,9 +11,34 @@ import (
 	"github.com/spf13/viper"
 )
 
+// Supported auto config environment names
+const (
+	LogAutoCfgEnvName   string = "PRLOG_AUTOCFG"
+	KafkaAutoCfgEnvName        = "PRKAFKA_AUTOCFG"
+)
+
+// Supported auto configuration types
+const (
+	EnvConfig  string = "env"
+	FileConfig        = "file"
+	BothConfig        = "both"
+)
+
+// Supported environment name prefixes
+const (
+	LogEnvPrefix   string = "PRLOG"
+	KafkaEnvPrefix        = "PRKAFKA"
+)
+
+// Supported config file names
+const (
+	LogFileName   string = "pr_log_config"
+	KafkaFileName        = "pr_kafka_config"
+)
+
 var log Logger
 
-func defaultLoggerCfg() Configuration {
+func defaultLogCfg() Configuration {
 	return Configuration{
 		LogPackage:           LogrusType,
 		LogLevel:             InfoType,
@@ -48,36 +72,40 @@ func defaultKafkaCfg() ProducerConfiguration {
 }
 
 func init() {
-	envConfig, _ := strconv.ParseBool(os.Getenv("PRLOG_ENVCONFIG"))
-	if !envConfig {
-		fmt.Printf("PRLOG_ENVCONFIG not true\n")
-		return
-	}
-
-	config := new(Configuration)
-	EnvConfigure(defaultLoggerCfg(), config, "PRLOG")
-	// fmt.Printf("config %+v\n\n", config)
-
-	if config.EnableKafka {
-		kafkaCfg := new(ProducerConfiguration)
-		EnvConfigure(defaultKafkaCfg(), kafkaCfg, "PRKAFKA")
-		// fmt.Printf("kafkaCfg %+v\n\n", kafkaCfg)
-
-		config.KafkaProducerCfg = *kafkaCfg
-		// fmt.Printf("config %+v\n", config)
-	}
-
 	var err error
-	log, err = NewLogger(*config)
+	config := new(Configuration)
+	err = EnvConfigure(defaultLogCfg(), config, os.Getenv(LogAutoCfgEnvName),
+		LogFileName, LogEnvPrefix)
+	// fmt.Printf("config %+v\n\n", config)
 	if err != nil {
-		fmt.Printf("Could not instantiate %s logger package %s",
+		fmt.Printf("Could not create logger configuration %s:", err.Error())
+		os.Exit(1)
+	}
+	kafkaConfig := new(ProducerConfiguration)
+	err = EnvConfigure(defaultKafkaCfg(), kafkaConfig, os.Getenv(KafkaAutoCfgEnvName),
+		KafkaFileName, KafkaEnvPrefix)
+	// fmt.Printf("config %+v\n\n", config)
+	if err != nil {
+		fmt.Printf("Could not create kafka configuration %s:", err.Error())
+		os.Exit(1)
+	}
+	config.KafkaProducerCfg = *kafkaConfig
+
+	if log, err = NewLogger(*config); err != nil {
+		fmt.Printf("Could not instantiate %s logger package: %s",
 			config.LogPackage, err.Error())
+		os.Exit(1)
 	}
 }
 
-func EnvConfigure(defaultCfg interface{}, config interface{}, prefix string) {
+func EnvConfigure(defaultCfg interface{}, config interface{}, auto string,
+	filename string, prefix string) error {
+
 	var defaultMap map[string]interface{}
-	defaultJson, _ := json.Marshal(defaultCfg)
+	defaultJson, err := json.Marshal(defaultCfg)
+	if err != nil {
+		return err
+	}
 	json.Unmarshal(defaultJson, &defaultMap)
 	// fmt.Printf("defaultMap %+v\n\n", defaultMap)
 
@@ -86,15 +114,27 @@ func EnvConfigure(defaultCfg interface{}, config interface{}, prefix string) {
 		// fmt.Printf("key %+v value %+v\n", key, value)
 		v.SetDefault(key, value)
 	}
-	v.SetEnvPrefix(prefix)
-	// v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	v.AutomaticEnv()
+	if auto == EnvConfig || auto == BothConfig {
+		v.SetEnvPrefix(prefix)
+		v.AutomaticEnv()
+	}
+
+	if auto == FileConfig || auto == BothConfig {
+		v.SetConfigName(filename)
+		v.AddConfigPath(".")
+		v.AddConfigPath("$HOME")
+		v.AddConfigPath("$HOME/.pavedroad.d")
+		if err := v.ReadInConfig(); err != nil {
+			return err
+		}
+	}
 
 	// fmt.Printf("\nbefore %+v\n\n", config)
 	if err := v.Unmarshal(config); err != nil {
-		fmt.Println(err)
+		return err
 	}
 	// fmt.Printf("after %+v\n\n", config)
+	return nil
 }
 
 func Print(args ...interface{}) {
