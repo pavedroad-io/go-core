@@ -88,6 +88,10 @@ func newKafkaProducer(config ProducerConfiguration) (*KafkaProducer, error) {
 	cfg.Producer.Flush.Frequency = config.FlushFreq * time.Millisecond
 	cfg.Producer.Return.Successes = false
 	cfg.Producer.Return.Errors = false
+	cfg.Producer.Retry.Max = 10
+	cfg.Producer.Retry.Backoff = 100 * time.Millisecond
+	cfg.Metadata.Retry.Max = 10
+	cfg.Metadata.Retry.Backoff = 2 * time.Second
 
 	switch config.Partition {
 	case HashPartition:
