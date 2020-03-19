@@ -38,24 +38,24 @@ const (
 
 var log Logger
 
-func defaultLogCfg() Configuration {
+func DefaultLogCfg() Configuration {
 	return Configuration{
 		LogPackage:           LogrusType,
 		LogLevel:             InfoType,
 		EnableCloudEvents:    true,
 		EnableKafka:          false,
 		KafkaFormat:          CEFormat,
-		EnableConsole:        true,
+		EnableConsole:        false,
 		ConsoleFormat:        TextFormat,
 		ConsoleLevelTruncate: true,
-		EnableFile:           false,
+		EnableFile:           true,
 		FileFormat:           JSONFormat,
 		FileLevelTruncate:    false,
 		FileLocation:         "pavedroad.log",
 	}
 }
 
-func defaultKafkaCfg() ProducerConfiguration {
+func DefaultKafkaCfg() ProducerConfiguration {
 	user, _ := user.Current()
 	return ProducerConfiguration{
 		Brokers:       []string{"localhost:9092"},
@@ -68,23 +68,22 @@ func defaultKafkaCfg() ProducerConfiguration {
 		AckWait:       WaitForLocal,
 		FlushFreq:     500, // milliseconds
 		EnableTLS:     false,
+		EnableDebug:   false,
 	}
 }
 
 func init() {
 	var err error
 	config := new(Configuration)
-	err = EnvConfigure(defaultLogCfg(), config, os.Getenv(LogAutoCfgEnvName),
+	err = EnvConfigure(DefaultLogCfg(), config, os.Getenv(LogAutoCfgEnvName),
 		LogFileName, LogEnvPrefix)
-	// fmt.Printf("config %+v\n\n", config)
 	if err != nil {
 		fmt.Printf("Could not create logger configuration %s:", err.Error())
 		os.Exit(1)
 	}
 	kafkaConfig := new(ProducerConfiguration)
-	err = EnvConfigure(defaultKafkaCfg(), kafkaConfig, os.Getenv(KafkaAutoCfgEnvName),
+	err = EnvConfigure(DefaultKafkaCfg(), kafkaConfig, os.Getenv(KafkaAutoCfgEnvName),
 		KafkaFileName, KafkaEnvPrefix)
-	// fmt.Printf("config %+v\n\n", config)
 	if err != nil {
 		fmt.Printf("Could not create kafka configuration %s:", err.Error())
 		os.Exit(1)
@@ -102,16 +101,14 @@ func EnvConfigure(defaultCfg interface{}, config interface{}, auto string,
 	filename string, prefix string) error {
 
 	var defaultMap map[string]interface{}
-	defaultJson, err := json.Marshal(defaultCfg)
+	defaultJSON, err := json.Marshal(defaultCfg)
 	if err != nil {
 		return err
 	}
-	json.Unmarshal(defaultJson, &defaultMap)
-	// fmt.Printf("defaultMap %+v\n\n", defaultMap)
+	json.Unmarshal(defaultJSON, &defaultMap)
 
 	v := viper.New()
 	for key, value := range defaultMap {
-		// fmt.Printf("key %+v value %+v\n", key, value)
 		v.SetDefault(key, value)
 	}
 	if auto == EnvConfig || auto == BothConfig {
@@ -129,11 +126,9 @@ func EnvConfigure(defaultCfg interface{}, config interface{}, auto string,
 		}
 	}
 
-	// fmt.Printf("\nbefore %+v\n\n", config)
 	if err := v.Unmarshal(config); err != nil {
 		return err
 	}
-	// fmt.Printf("after %+v\n\n", config)
 	return nil
 }
 
