@@ -4,7 +4,6 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"errors"
-	"fmt"
 	stdlog "log"
 	"os"
 	"strconv"
@@ -73,6 +72,7 @@ type ProducerConfiguration struct {
 	FlushFreq     time.Duration
 	EnableTLS     bool
 	TLSCfg        *tls.Config
+	EnableDebug   bool
 }
 
 // KafkaProducer wraps sarama producer with config
@@ -83,7 +83,10 @@ type KafkaProducer struct {
 
 // newKafkaProducer returns a kafka producer instance
 func newKafkaProducer(config ProducerConfiguration) (*KafkaProducer, error) {
-	sarama.Logger = stdlog.New(os.Stdout, "[sarama] ", stdlog.LstdFlags)
+
+	if config.EnableDebug {
+		sarama.Logger = stdlog.New(os.Stdout, "[sarama] ", stdlog.LstdFlags)
+	}
 	cfg := sarama.NewConfig()
 	cfg.Producer.Flush.Frequency = config.FlushFreq * time.Millisecond
 	cfg.Producer.Return.Successes = false
@@ -135,7 +138,6 @@ func newKafkaProducer(config ProducerConfiguration) (*KafkaProducer, error) {
 		cfg.Net.TLS.Config = config.TLSCfg
 	}
 
-	fmt.Printf("brokers: %+v\n", config.Brokers)
 	producer, err := sarama.NewAsyncProducer(config.Brokers, cfg)
 	if err != nil {
 		return &KafkaProducer{}, err
