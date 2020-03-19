@@ -36,8 +36,10 @@ const (
 	KafkaFileName        = "pr_kafka_config"
 )
 
-var log Logger
+// logger global for go log pkg emulation
+var logger Logger
 
+// DefaultLogCfg returns default log configuration
 func DefaultLogCfg() Configuration {
 	return Configuration{
 		LogPackage:           LogrusType,
@@ -55,6 +57,7 @@ func DefaultLogCfg() Configuration {
 	}
 }
 
+// DefaultKafkaCfg returns default kafka configuration
 func DefaultKafkaCfg() ProducerConfiguration {
 	user, _ := user.Current()
 	return ProducerConfiguration{
@@ -72,6 +75,7 @@ func DefaultKafkaCfg() ProducerConfiguration {
 	}
 }
 
+// init called on package import to configure logger via environment
 func init() {
 	var err error
 	config := new(Configuration)
@@ -90,13 +94,14 @@ func init() {
 	}
 	config.KafkaProducerCfg = *kafkaConfig
 
-	if log, err = NewLogger(*config); err != nil {
+	if logger, err = NewLogger(*config); err != nil {
 		fmt.Printf("Could not instantiate %s logger package: %s",
 			config.LogPackage, err.Error())
 		os.Exit(1)
 	}
 }
 
+// EnvConfigure fills config from defaults, config file and environment
 func EnvConfigure(defaultCfg interface{}, config interface{}, auto string,
 	filename string, prefix string) error {
 
@@ -132,86 +137,107 @@ func EnvConfigure(defaultCfg interface{}, config interface{}, auto string,
 	return nil
 }
 
+// Print emulates function from go log pkg
 func Print(args ...interface{}) {
-	log.Info(args...)
+	logger.Info(args...)
 }
 
+// Printf emulates function from go log pkg
 func Printf(format string, args ...interface{}) {
-	log.Infof(format, args...)
+	logger.Infof(format, args...)
 }
 
+// Println emulates function from go log pkg
 func Println(args ...interface{}) {
-	log.Info(strings.TrimRight(fmt.Sprintln(args...), "\n"))
+	logger.Info(strings.TrimRight(fmt.Sprintln(args...), "\n"))
 }
 
+// Debug emulates function from go log pkg
 func Debug(args ...interface{}) {
-	log.Debug(args...)
+	logger.Debug(args...)
 }
 
+// Debugf emulates function from go log pkg
 func Debugf(format string, args ...interface{}) {
-	log.Debugf(format, args...)
+	logger.Debugf(format, args...)
 }
 
+// Debugln emulates function from go log pkg
 func Debugln(args ...interface{}) {
-	log.Debug(strings.TrimRight(fmt.Sprintln(args...), "\n"))
+	logger.Debug(strings.TrimRight(fmt.Sprintln(args...), "\n"))
 }
 
+// Info emulates function from go log pkg
 func Info(args ...interface{}) {
-	log.Info(args...)
+	logger.Info(args...)
 }
 
+// Infof emulates function from go log pkg
 func Infof(format string, args ...interface{}) {
-	log.Infof(format, args...)
+	logger.Infof(format, args...)
 }
 
+// Infoln emulates function from go log pkg
 func Infoln(args ...interface{}) {
-	log.Info(strings.TrimRight(fmt.Sprintln(args...), "\n"))
+	logger.Info(strings.TrimRight(fmt.Sprintln(args...), "\n"))
 }
 
+// Warn emulates function from go log pkg
 func Warn(args ...interface{}) {
-	log.Warn(args...)
+	logger.Warn(args...)
 }
 
+// Warnf emulates function from go log pkg
 func Warnf(format string, args ...interface{}) {
-	log.Warnf(format, args...)
+	logger.Warnf(format, args...)
 }
 
+// Warnln emulates function from go log pkg
 func Warnln(args ...interface{}) {
-	log.Warn(strings.TrimRight(fmt.Sprintln(args...), "\n"))
+	logger.Warn(strings.TrimRight(fmt.Sprintln(args...), "\n"))
 }
 
+// Error emulates function from go log pkg
 func Error(args ...interface{}) {
-	log.Error(args...)
+	logger.Error(args...)
 }
 
+// Errorf emulates function from go log pkg
 func Errorf(format string, args ...interface{}) {
-	log.Errorf(format, args...)
+	logger.Errorf(format, args...)
 }
 
+// Errorln emulates function from go log pkg
 func Errorln(args ...interface{}) {
-	log.Error(strings.TrimRight(fmt.Sprintln(args...), "\n"))
+	logger.Error(strings.TrimRight(fmt.Sprintln(args...), "\n"))
 }
 
+// Fatal emulates function from go log pkg
 func Fatal(args ...interface{}) {
-	log.Fatal(args...)
+	logger.Fatal(args...)
 }
 
+// Fatalf emulates function from go log pkg
 func Fatalf(format string, args ...interface{}) {
-	log.Fatalf(format, args...)
+	logger.Fatalf(format, args...)
 }
 
+// Fatalln emulates function from go log pkg
 func Fatalln(args ...interface{}) {
-	log.Fatal(strings.TrimRight(fmt.Sprintln(args...), "\n"))
+	logger.Fatal(strings.TrimRight(fmt.Sprintln(args...), "\n"))
 }
 
+// Panic emulates function from go log pkg
 func Panic(args ...interface{}) {
-	log.Panic(args...)
+	logger.Panic(args...)
 }
 
+// Panicf emulates function from go log pkg
 func Panicf(format string, args ...interface{}) {
-	log.Fatalf(format, args...)
+	logger.Fatalf(format, args...)
 }
 
+// Panicln emulates function from go log pkg
 func Panicln(args ...interface{}) {
-	log.Panic(strings.TrimRight(fmt.Sprintln(args...), "\n"))
+	logger.Panic(strings.TrimRight(fmt.Sprintln(args...), "\n"))
 }
