@@ -31,6 +31,7 @@ func main() {
 			AckWait:       logger.WaitForLocal,
 			FlushFreq:     500, // milliseconds
 			EnableTLS:     false,
+			EnableDebug:   false,
 		},
 		EnableConsole:        true,
 		ConsoleFormat:        logger.TextFormat,
