@@ -18,15 +18,24 @@ type zapLogger struct {
 }
 
 // getEncoder returns a zap encoder
-func getEncoder(format FormatType) zapcore.Encoder {
+func getEncoder(format FormatType, config Configuration) zapcore.Encoder {
 	encoderConfig := zap.NewProductionEncoderConfig()
-	encoderConfig.EncodeTime = zapcore.RFC3339TimeEncoder
+	if config.EnableTimeStamps {
+		encoderConfig.EncodeTime = zapcore.RFC3339TimeEncoder
+	} else {
+		encoderConfig.TimeKey = ""
+	}
+	if config.EnableColorLevels {
+		encoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+	}
 
 	switch format {
 	case JSONFormat:
 		return zapcore.NewJSONEncoder(encoderConfig)
 	case CEFormat:
-		encoderConfig.TimeKey = ceTimeKey
+		if config.EnableTimeStamps {
+			encoderConfig.TimeKey = ceTimeKey
+		}
 		encoderConfig.LevelKey = ceLevelKey
 		encoderConfig.MessageKey = ceMessageKey
 		encoderConfig.CallerKey = ""
@@ -74,14 +83,16 @@ func newZapLogger(config Configuration) (Logger, error) {
 		if err != nil {
 			return nil, err
 		}
-		core := zapcore.NewCore(getEncoder(config.KafkaFormat), writer, level)
+		core := zapcore.NewCore(getEncoder(config.KafkaFormat, config),
+			writer, level)
 		// core = zapcore.RegisterHooks(core, zapHook)
 		cores = append(cores, core)
 	}
 
 	if config.EnableConsole {
 		writer := zapcore.Lock(os.Stdout)
-		core := zapcore.NewCore(getEncoder(config.ConsoleFormat), writer, level)
+		core := zapcore.NewCore(getEncoder(config.ConsoleFormat, config),
+			writer, level)
 		cores = append(cores, core)
 	}
 
@@ -92,12 +103,14 @@ func newZapLogger(config Configuration) (Logger, error) {
 			Compress: true,
 			MaxAge:   28,
 		})
-		core := zapcore.NewCore(getEncoder(config.FileFormat), writer, level)
+		core := zapcore.NewCore(getEncoder(config.FileFormat, config),
+			writer, level)
 		cores = append(cores, core)
 	}
 
 	combinedCore := zapcore.NewTee(cores...)
 	logger := zap.New(combinedCore).Sugar()
+	defer logger.Sync()
 
 	if config.EnableCloudEvents {
 		zaplogger := &zapLogger{

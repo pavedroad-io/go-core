@@ -42,18 +42,18 @@ var logger Logger
 // DefaultLogCfg returns default log configuration
 func DefaultLogCfg() Configuration {
 	return Configuration{
-		LogPackage:           LogrusType,
-		LogLevel:             InfoType,
-		EnableCloudEvents:    true,
-		EnableKafka:          false,
-		KafkaFormat:          CEFormat,
-		EnableConsole:        false,
-		ConsoleFormat:        TextFormat,
-		ConsoleLevelTruncate: true,
-		EnableFile:           true,
-		FileFormat:           JSONFormat,
-		FileLevelTruncate:    false,
-		FileLocation:         "pavedroad.log",
+		LogPackage:        LogrusType,
+		LogLevel:          InfoType,
+		EnableTimeStamps:  true,
+		EnableColorLevels: true,
+		EnableCloudEvents: true,
+		EnableKafka:       false,
+		KafkaFormat:       CEFormat,
+		EnableConsole:     false,
+		ConsoleFormat:     TextFormat,
+		EnableFile:        true,
+		FileFormat:        JSONFormat,
+		FileLocation:      "pavedroad.log",
 	}
 }
 
@@ -110,7 +110,11 @@ func EnvConfigure(defaultCfg interface{}, config interface{}, auto string,
 	if err != nil {
 		return err
 	}
-	json.Unmarshal(defaultJSON, &defaultMap)
+
+	err = json.Unmarshal(defaultJSON, &defaultMap)
+	if err != nil {
+		return err
+	}
 
 	v := viper.New()
 	for key, value := range defaultMap {

@@ -17,6 +17,8 @@ func main() {
 	config := logger.Configuration{
 		LogPackage:        logger.ZapType,
 		LogLevel:          logger.InfoType,
+		EnableTimeStamps:  true,
+		EnableColorLevels: true,
 		EnableCloudEvents: true,
 		EnableKafka:       true,
 		KafkaFormat:       logger.CEFormat,
@@ -33,13 +35,11 @@ func main() {
 			EnableTLS:     false,
 			EnableDebug:   false,
 		},
-		EnableConsole:        true,
-		ConsoleFormat:        logger.TextFormat,
-		ConsoleLevelTruncate: true,
-		EnableFile:           false,
-		FileFormat:           logger.JSONFormat,
-		FileLevelTruncate:    false,
-		FileLocation:         "pavedroad.log",
+		EnableConsole: true,
+		ConsoleFormat: logger.TextFormat,
+		EnableFile:    false,
+		FileFormat:    logger.JSONFormat,
+		FileLocation:  "pavedroad.log",
 	}
 
 	// try a zap logger

@@ -4,6 +4,7 @@ package logger
 
 import (
 	"io"
+	"io/ioutil"
 	"os"
 	"time"
 
@@ -37,14 +38,17 @@ func (f *ceFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 }
 
 // getFormatter returns a logrus formatter
-func getFormatter(format FormatType, truncate bool) logrus.Formatter {
+func getFormatter(format FormatType, config Configuration) logrus.Formatter {
 	switch format {
 	case JSONFormat:
-		return &logrus.JSONFormatter{}
+		return &logrus.JSONFormatter{
+			DisableTimestamp: !config.EnableTimeStamps,
+		}
 	case CEFormat:
 		return &ceFormatter{
 			logrus.JSONFormatter{
-				TimestampFormat: time.RFC3339,
+				DisableTimestamp: !config.EnableTimeStamps,
+				TimestampFormat:  time.RFC3339,
 				FieldMap: logrus.FieldMap{
 					logrus.FieldKeyTime:  ceTimeKey,
 					logrus.FieldKeyMsg:   ceMessageKey,
@@ -55,10 +59,16 @@ func getFormatter(format FormatType, truncate bool) logrus.Formatter {
 	case TextFormat:
 		fallthrough
 	default:
-		return &logrus.TextFormatter{
-			FullTimestamp:          true,
-			DisableLevelTruncation: !truncate,
+		formatter := logrus.TextFormatter{
+			DisableTimestamp: !config.EnableTimeStamps,
+			FullTimestamp:    true,
 		}
+		if config.EnableColorLevels {
+			formatter.ForceColors = true
+		} else {
+			formatter.DisableColors = true
+		}
+		return &formatter
 	}
 }
 
@@ -77,23 +87,30 @@ func newLogrusLogger(config Configuration) (Logger, error) {
 		MaxAge:   28,
 	}
 	lLogger := &logrus.Logger{
-		Out:       stdOutHandler,
-		Formatter: getFormatter(config.ConsoleFormat, config.ConsoleLevelTruncate),
+		Out:       ioutil.Discard,
+		Formatter: getFormatter(config.ConsoleFormat, config),
 		Hooks:     make(logrus.LevelHooks),
 		Level:     level,
 	}
 
 	if config.EnableConsole && config.EnableFile {
 		lLogger.SetOutput(io.MultiWriter(stdOutHandler, fileHandler))
-	} else {
-		if config.EnableFile {
-			lLogger.SetOutput(fileHandler)
-			lLogger.SetFormatter(getFormatter(config.FileFormat, config.FileLevelTruncate))
-		}
+	} else if config.EnableConsole {
+		lLogger.SetOutput(stdOutHandler)
+	} else if config.EnableFile {
+		lLogger.SetOutput(fileHandler)
+	}
+
+	// If both File and Console are enabled then use File format
+	if config.EnableFile {
+		lLogger.SetFormatter(getFormatter(config.FileFormat, config))
+	} else if config.EnableConsole {
+		lLogger.SetFormatter(getFormatter(config.ConsoleFormat, config))
 	}
 
 	if config.EnableKafka {
-		hook, err := newLogrusHook(config.KafkaProducerCfg, getFormatter(config.KafkaFormat, true))
+		hook, err := newLogrusHook(config.KafkaProducerCfg,
+			getFormatter(config.KafkaFormat, config))
 		if err != nil {
 			return nil, err
 		}

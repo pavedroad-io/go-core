@@ -41,19 +41,19 @@ const (
 
 // Configuration stores the config for the logger
 type Configuration struct {
-	LogPackage           PackageType
-	LogLevel             LevelType
-	EnableCloudEvents    bool
-	EnableKafka          bool
-	KafkaFormat          FormatType
-	KafkaProducerCfg     ProducerConfiguration
-	EnableConsole        bool
-	ConsoleFormat        FormatType
-	ConsoleLevelTruncate bool
-	EnableFile           bool
-	FileFormat           FormatType
-	FileLevelTruncate    bool
-	FileLocation         string
+	LogPackage        PackageType
+	LogLevel          LevelType
+	EnableTimeStamps  bool
+	EnableColorLevels bool
+	EnableCloudEvents bool
+	EnableKafka       bool
+	KafkaFormat       FormatType
+	KafkaProducerCfg  ProducerConfiguration
+	EnableConsole     bool
+	ConsoleFormat     FormatType
+	EnableFile        bool
+	FileFormat        FormatType
+	FileLocation      string
 }
 
 // NewLogger returns a Logger instance
