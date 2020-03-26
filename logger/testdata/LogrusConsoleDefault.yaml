@@ -1,0 +1,26 @@
+logpackage: logrus
+loglevel: info
+enabletimestamps: false
+enablecolorlevels: true
+enablecloudevents: true
+enablekafka: false
+kafkaformat: cloudevents
+kafkaproducercfg:
+  brokers:
+  - localhost:9092
+  topic: logs
+  partition: random
+  key: fixed
+  keyname: user
+  cloudeventsid: hmac
+  compression: snappy
+  ackwait: local
+  flushfreq: 500ns
+  enabletls: false
+  tlscfg: null
+  enabledebug: false
+enableconsole: true
+consoleformat: text
+enablefile: false
+fileformat: json
+filelocation: pavedroad.log

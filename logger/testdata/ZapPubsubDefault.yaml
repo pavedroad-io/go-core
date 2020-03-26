@@ -1,0 +1,26 @@
+logpackage: zap
+loglevel: info
+enabletimestamps: false
+enablecolorlevels: true
+enablecloudevents: true
+enablekafka: true
+kafkaformat: cloudevents
+kafkaproducercfg:
+  brokers:
+  - localhost:9092
+  topic: logs
+  partition: random
+  key: fixed
+  keyname: user
+  cloudeventsid: hmac
+  compression: snappy
+  ackwait: local
+  flushfreq: 500ns
+  enabletls: false
+  tlscfg: null
+  enabledebug: false
+enableconsole: false
+consoleformat: text
+enablefile: false
+fileformat: json
+filelocation: testdata/ZapLogfileDefault.log
