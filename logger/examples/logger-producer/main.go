@@ -15,7 +15,10 @@ import (
 func main() {
 	user, _ := user.Current()
 	config := logger.Configuration{
-		LogLevel:          logger.Info,
+		LogPackage:        logger.ZapType,
+		LogLevel:          logger.InfoType,
+		EnableTimeStamps:  true,
+		EnableColorLevels: true,
 		EnableCloudEvents: true,
 		EnableKafka:       true,
 		KafkaFormat:       logger.CEFormat,
@@ -30,19 +33,18 @@ func main() {
 			AckWait:       logger.WaitForLocal,
 			FlushFreq:     500, // milliseconds
 			EnableTLS:     false,
+			EnableDebug:   false,
 		},
-		EnableConsole:        true,
-		ConsoleFormat:        logger.TextFormat,
-		ConsoleLevelTruncate: true,
-		EnableFile:           false,
-		FileFormat:           logger.JSONFormat,
-		FileLevelTruncate:    false,
-		FileLocation:         "pavedroad.log",
+		EnableConsole: true,
+		ConsoleFormat: logger.TextFormat,
+		EnableFile:    false,
+		FileFormat:    logger.JSONFormat,
+		FileLocation:  "pavedroad.log",
 	}
 
 	// try a zap logger
 
-	log, err := logger.NewLogger(config, logger.Zap)
+	log, err := logger.NewLogger(config)
 	if err != nil {
 		fmt.Printf("Could not instantiate zap logger %s", err.Error())
 	} else {
@@ -59,9 +61,10 @@ func main() {
 	// try a logrus logger
 	// switch to UUID ID and level key
 
+	config.LogPackage = logger.LogrusType
 	config.KafkaProducerCfg.CloudeventsID = logger.UUID
 	config.KafkaProducerCfg.Key = logger.LevelKey
-	log, err = logger.NewLogger(config, logger.Logrus)
+	log, err = logger.NewLogger(config)
 	if err != nil {
 		fmt.Printf("Could not instantiate logrus logger %s", err.Error())
 	} else {
@@ -79,7 +82,7 @@ func main() {
 
 	config.KafkaProducerCfg.Key = logger.ExtractedKey
 	config.KafkaProducerCfg.KeyName = "subject"
-	log, err = logger.NewLogger(config, logger.Logrus)
+	log, err = logger.NewLogger(config)
 	if err != nil {
 		fmt.Printf("Could not instantiate logrus logger %s", err.Error())
 	} else {
@@ -90,7 +93,7 @@ func main() {
 	// try setting key to current time in seconds
 
 	config.KafkaProducerCfg.Key = logger.TimeSecondKey
-	log, err = logger.NewLogger(config, logger.Logrus)
+	log, err = logger.NewLogger(config)
 	if err != nil {
 		fmt.Printf("Could not instantiate logrus logger %s", err.Error())
 	} else {
@@ -101,7 +104,7 @@ func main() {
 	// try setting key to current time in nanoseconds
 
 	config.KafkaProducerCfg.Key = logger.TimeNanoSecondKey
-	log, err = logger.NewLogger(config, logger.Logrus)
+	log, err = logger.NewLogger(config)
 	if err != nil {
 		fmt.Printf("Could not instantiate logrus logger %s", err.Error())
 	} else {

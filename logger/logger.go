@@ -7,60 +7,61 @@ import "errors"
 // Fields provided for calls to WithFields for structured logging
 type Fields map[string]interface{}
 
+// PackageType provided to select underlying log package
+type PackageType string
+
+// Supported log packages
+const (
+	ZapType    PackageType = "zap"
+	LogrusType             = "logrus"
+)
+
 // LevelType provided to select log level
 type LevelType string
 
 // Supported log levels
 const (
-	Debug LevelType = "debug"
-	Info            = "info" // default
-	Warn            = "warn"
-	Error           = "error"
-	Fatal           = "fatal"
-	Panic           = "panic"
+	DebugType LevelType = "debug"
+	InfoType            = "info" // default
+	WarnType            = "warn"
+	ErrorType           = "error"
+	FatalType           = "fatal"
+	PanicType           = "panic"
 )
 
 // FormatType provided to select logger format
-type FormatType int8
+type FormatType string
 
 // Types of logger formats
 const (
-	JSONFormat FormatType = iota
-	TextFormat            // default
-	CEFormat              // cloudevents
+	JSONFormat FormatType = "json"
+	TextFormat            = "text" // default
+	CEFormat              = "cloudevents"
 )
 
 // Configuration stores the config for the logger
 type Configuration struct {
-	LogLevel             LevelType
-	EnableCloudEvents    bool
-	EnableKafka          bool
-	KafkaFormat          FormatType
-	KafkaProducerCfg     ProducerConfiguration
-	EnableConsole        bool
-	ConsoleFormat        FormatType
-	ConsoleLevelTruncate bool
-	EnableFile           bool
-	FileFormat           FormatType
-	FileLevelTruncate    bool
-	FileLocation         string
+	LogPackage        PackageType
+	LogLevel          LevelType
+	EnableTimeStamps  bool
+	EnableColorLevels bool
+	EnableCloudEvents bool
+	EnableKafka       bool
+	KafkaFormat       FormatType
+	KafkaProducerCfg  ProducerConfiguration
+	EnableConsole     bool
+	ConsoleFormat     FormatType
+	EnableFile        bool
+	FileFormat        FormatType
+	FileLocation      string
 }
 
-// LogType provided to select underlying log package
-type LogType int8
-
-// Supported log packages
-const (
-	Zap LogType = iota
-	Logrus
-)
-
 // NewLogger returns a Logger instance
-func NewLogger(config Configuration, logType LogType) (Logger, error) {
-	switch logType {
-	case Zap:
+func NewLogger(config Configuration) (Logger, error) {
+	switch config.LogPackage {
+	case ZapType:
 		return newZapLogger(config)
-	case Logrus:
+	case LogrusType:
 		return newLogrusLogger(config)
 	default:
 		return nil, errors.New("Invalid log type")

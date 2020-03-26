@@ -5,7 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/gofrs/uuid"
 )
 
 // ceKey provides cloudevents key type
@@ -23,13 +23,12 @@ const (
 )
 
 // ceIDType provides cloudevents id field type
-type ceIDType int8
-
+type ceIDType string
 
 // Types of cloudevents id fields
 const (
-	HMAC ceIDType = iota // for de-duplication
-	UUID                 // completely unique
+	HMAC ceIDType = "hmac" // for de-duplication
+	UUID          = "uuid" // completely unique
 )
 
 // Fixed field values for cloudevents

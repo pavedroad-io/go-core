@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	// stdlog "log"
 	"os"
 	"os/signal"
 
@@ -28,6 +29,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	// uncomment to enable connection debugging
+	// sarama.Logger = stdlog.New(os.Stdout, "[sarama] ", stdlog.LstdFlags)
 
 	// init exit
 	interrupt := make(chan os.Signal, 1)
