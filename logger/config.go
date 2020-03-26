@@ -59,13 +59,19 @@ func DefaultLogCfg() Configuration {
 
 // DefaultKafkaCfg returns default kafka configuration
 func DefaultKafkaCfg() ProducerConfiguration {
-	user, _ := user.Current()
+	var username string
+	user, err := user.Current()
+	if err != nil {
+		username = "username"
+	} else {
+		username = user.Username
+	}
 	return ProducerConfiguration{
 		Brokers:       []string{"localhost:9092"},
 		Topic:         "logs",
 		Partition:     RandomPartition,
 		Key:           FixedKey,
-		KeyName:       user.Username,
+		KeyName:       username,
 		CloudeventsID: HMAC,
 		Compression:   CompressionSnappy,
 		AckWait:       WaitForLocal,
@@ -86,13 +92,16 @@ func init() {
 		os.Exit(1)
 	}
 	kafkaConfig := new(ProducerConfiguration)
-	err = EnvConfigure(DefaultKafkaCfg(), kafkaConfig, os.Getenv(KafkaAutoCfgEnvName),
-		KafkaFileName, KafkaEnvPrefix)
-	if err != nil {
+	err = EnvConfigure(DefaultKafkaCfg(), kafkaConfig,
+		os.Getenv(KafkaAutoCfgEnvName), KafkaFileName, KafkaEnvPrefix)
+	if err == nil {
+		config.KafkaProducerCfg = *kafkaConfig
+	} else {
 		fmt.Printf("Could not create kafka configuration %s:", err.Error())
-		os.Exit(1)
+		if config.EnableKafka {
+			os.Exit(1)
+		}
 	}
-	config.KafkaProducerCfg = *kafkaConfig
 
 	if logger, err = NewLogger(*config); err != nil {
 		fmt.Printf("Could not instantiate %s logger package: %s",
