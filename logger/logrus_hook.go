@@ -10,23 +10,25 @@ import (
 
 // LogrusHook provides a logrus hook for Kafka
 type LogrusHook struct {
-	config    ProducerConfiguration
 	kp        *KafkaProducer
 	formatter logrus.Formatter
 	levels    []logrus.Level
 }
 
 // newLogrusHook returns a kafka producer hook instance
-func newLogrusHook(cfg ProducerConfiguration, fmt logrus.Formatter) (*LogrusHook, error) {
+func newLogrusHook(
+	kpcfg ProducerConfiguration,
+	cecfg CloudEventsConfiguration,
+	fmt logrus.Formatter) (*LogrusHook, error) {
+
 	// create an async producer
-	kafkaProducer, err := newKafkaProducer(cfg)
+	kafkaProducer, err := newKafkaProducer(kpcfg, cecfg)
 	if err != nil {
 		return nil, err
 	}
 
 	// create the Kafka hook
 	return &LogrusHook{
-		config:    cfg,
 		kp:        kafkaProducer,
 		formatter: fmt,
 		levels:    logrus.AllLevels,

@@ -110,7 +110,7 @@ func newLogrusLogger(config Configuration) (Logger, error) {
 
 	if config.EnableKafka {
 		hook, err := newLogrusHook(config.KafkaProducerCfg,
-			getFormatter(config.KafkaFormat, config))
+			config.CloudEventsCfg, getFormatter(config.KafkaFormat, config))
 		if err != nil {
 			return nil, err
 		}
@@ -123,6 +123,7 @@ func newLogrusLogger(config Configuration) (Logger, error) {
 		logruslogger := &logrusLogger{
 			logger: lLogger,
 		}
+		ceFields := ceGetFields(config.CloudEventsCfg)
 		return logruslogger.WithFields(ceFields), nil
 	}
 

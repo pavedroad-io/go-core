@@ -14,7 +14,6 @@ import (
 //    Config.Return.Successes == false
 //    Config.Return.Errors == false
 type ZapWriter struct {
-	cfg       ProducerConfiguration
 	kp        *KafkaProducer
 	closed    int32          // Nonzero if closing started, must be accessed atomically
 	pendingWg sync.WaitGroup // WaitGroup for pending messages
@@ -22,14 +21,17 @@ type ZapWriter struct {
 }
 
 // newZapWriter returns a kafka io.writer instance
-func newZapWriter(cfg ProducerConfiguration) (*ZapWriter, error) {
+func newZapWriter(
+	kpcfg ProducerConfiguration,
+	cecfg CloudEventsConfiguration) (*ZapWriter, error) {
+
 	// create an async producer
-	kp, err := newKafkaProducer(cfg)
+	kp, err := newKafkaProducer(kpcfg, cecfg)
 	if err != nil {
 		return nil, err
 	}
 
-	zw := &ZapWriter{cfg: cfg, kp: kp}
+	zw := &ZapWriter{kp: kp}
 	return zw, nil
 }
 

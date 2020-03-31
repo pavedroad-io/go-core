@@ -61,34 +61,36 @@ const (
 
 // ProducerConfiguration provides kafka producer configuration type
 type ProducerConfiguration struct {
-	Brokers       []string
-	Topic         string
-	Partition     kafkaPartitionType
-	Key           kafkaKeyType
-	KeyName       string
-	CloudeventsID ceIDType
-	Compression   compressionType
-	AckWait       ackWaitType
-	FlushFreq     time.Duration
-	EnableTLS     bool
-	TLSCfg        *tls.Config
-	EnableDebug   bool
+	Brokers     []string
+	Topic       string
+	Partition   kafkaPartitionType
+	Key         kafkaKeyType
+	KeyName     string
+	Compression compressionType
+	AckWait     ackWaitType
+	FlushFreq   time.Duration
+	EnableTLS   bool
+	TLSCfg      *tls.Config
+	EnableDebug bool
 }
 
 // KafkaProducer wraps sarama producer with config
 type KafkaProducer struct {
 	producer sarama.AsyncProducer
-	config   ProducerConfiguration
+	kpConfig ProducerConfiguration
+	ceConfig CloudEventsConfiguration
 }
 
 // newKafkaProducer returns a kafka producer instance
-func newKafkaProducer(config ProducerConfiguration) (*KafkaProducer, error) {
+func newKafkaProducer(
+	kpConfig ProducerConfiguration,
+	ceConfig CloudEventsConfiguration) (*KafkaProducer, error) {
 
-	if config.EnableDebug {
+	if kpConfig.EnableDebug {
 		sarama.Logger = stdlog.New(os.Stdout, "[sarama] ", stdlog.LstdFlags)
 	}
 	cfg := sarama.NewConfig()
-	cfg.Producer.Flush.Frequency = config.FlushFreq * time.Millisecond
+	cfg.Producer.Flush.Frequency = kpConfig.FlushFreq * time.Millisecond
 	cfg.Producer.Return.Successes = false
 	cfg.Producer.Return.Errors = false
 	cfg.Producer.Retry.Max = 10
@@ -96,7 +98,7 @@ func newKafkaProducer(config ProducerConfiguration) (*KafkaProducer, error) {
 	cfg.Metadata.Retry.Max = 10
 	cfg.Metadata.Retry.Backoff = 2 * time.Second
 
-	switch config.Partition {
+	switch kpConfig.Partition {
 	case HashPartition:
 		cfg.Producer.Partitioner = sarama.NewHashPartitioner
 	case RoundRobinPartition:
@@ -107,7 +109,7 @@ func newKafkaProducer(config ProducerConfiguration) (*KafkaProducer, error) {
 		cfg.Producer.Partitioner = sarama.NewRandomPartitioner
 	}
 
-	switch config.Compression {
+	switch kpConfig.Compression {
 	case CompressionGZIP:
 		cfg.Producer.Compression = sarama.CompressionGZIP
 	case CompressionSnappy:
@@ -122,7 +124,7 @@ func newKafkaProducer(config ProducerConfiguration) (*KafkaProducer, error) {
 		cfg.Producer.Compression = sarama.CompressionNone
 	}
 
-	switch config.AckWait {
+	switch kpConfig.AckWait {
 	case WaitForNone:
 		cfg.Producer.RequiredAcks = sarama.NoResponse
 	case WaitForAll:
@@ -133,19 +135,20 @@ func newKafkaProducer(config ProducerConfiguration) (*KafkaProducer, error) {
 		cfg.Producer.RequiredAcks = sarama.WaitForLocal
 	}
 
-	if config.EnableTLS {
+	if kpConfig.EnableTLS {
 		cfg.Net.TLS.Enable = true
-		cfg.Net.TLS.Config = config.TLSCfg
+		cfg.Net.TLS.Config = kpConfig.TLSCfg
 	}
 
-	producer, err := sarama.NewAsyncProducer(config.Brokers, cfg)
+	producer, err := sarama.NewAsyncProducer(kpConfig.Brokers, cfg)
 	if err != nil {
 		return &KafkaProducer{}, err
 	}
 
 	return &KafkaProducer{
 		producer: producer,
-		config:   config,
+		kpConfig: kpConfig,
+		ceConfig: ceConfig,
 	}, nil
 }
 
@@ -161,11 +164,11 @@ func (kp *KafkaProducer) sendMessage(msg []byte) error {
 	// can extract data from message fields here
 	// set key based on kp config
 	var key sarama.Encoder
-	switch kp.config.Key {
+	switch kp.kpConfig.Key {
 	case FixedKey:
-		key = sarama.StringEncoder(kp.config.KeyName)
+		key = sarama.StringEncoder(kp.kpConfig.KeyName)
 	case ExtractedKey:
-		if name, ok := msgMap[kp.config.KeyName].(string); ok {
+		if name, ok := msgMap[kp.kpConfig.KeyName].(string); ok {
 			key = sarama.StringEncoder(name)
 		} else {
 			return errors.New("Extracted key missing")
@@ -181,7 +184,7 @@ func (kp *KafkaProducer) sendMessage(msg []byte) error {
 	}
 
 	// add cloudevents fields like id
-	err = kp.ceAddFields(msgMap)
+	err = kp.ceAddFields(kp.ceConfig, msgMap)
 	if err != nil {
 		return err
 	}
@@ -194,7 +197,7 @@ func (kp *KafkaProducer) sendMessage(msg []byte) error {
 
 	kp.producer.Input() <- &sarama.ProducerMessage{
 		Key:   key,
-		Topic: kp.config.Topic,
+		Topic: kp.kpConfig.Topic,
 		Value: sarama.ByteEncoder(newmsg),
 	}
 	return nil

@@ -38,7 +38,7 @@ func readConfiguration(t *testing.T, testname string) (Configuration, error) {
 
 	err = yaml.Unmarshal(yamlbytes, &cfg)
 	if err != nil {
-		t.Logf("Failed to unmarshall %s config %s\n", input, err.Error())
+		t.Logf("Failed to unmarshal %s config %s\n", input, err.Error())
 		return cfg, err
 	}
 	return cfg, nil
@@ -52,7 +52,7 @@ func executeTests(t *testing.T, cfg Configuration) error {
 		return err
 	}
 
-	log.Debugf("Dugubf using %s", "Debugf (should not appear)")
+	log.Debugf("Debugf using %s", "Debugf (should not appear)")
 	log.Infof("Infof using %s", cfg.LogPackage)
 	log.Warnf("Warnf using %s", cfg.LogPackage)
 	log.Errorf("Errorf using %s", cfg.LogPackage)
@@ -115,7 +115,6 @@ func normalizeZapLine(t *testing.T, line string) ([]byte, error) {
 	}
 	jsonbytes = append(jsonbytes, "\n"...)
 	return append([]byte(prejson), jsonbytes...), nil
-	// return append([]byte(prejson), jsonbytes, "\n"...), nil
 }
 
 func dockerCompose(t *testing.T, file string, args ...string) error {
@@ -276,7 +275,7 @@ func TestPubsub(t *testing.T) {
 
 	var (
 		brokers = []string{"localhost:9092"}
-		group   = "mygroup"
+		group   = "testgroup"
 		topics  = []string{"logs"}
 		config  = cluster.NewConfig()
 	)

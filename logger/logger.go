@@ -46,6 +46,7 @@ type Configuration struct {
 	EnableTimeStamps  bool
 	EnableColorLevels bool
 	EnableCloudEvents bool
+	CloudEventsCfg    CloudEventsConfiguration
 	EnableKafka       bool
 	KafkaFormat       FormatType
 	KafkaProducerCfg  ProducerConfiguration

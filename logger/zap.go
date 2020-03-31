@@ -79,12 +79,15 @@ func newZapLogger(config Configuration) (Logger, error) {
 	cores := []zapcore.Core{}
 
 	if config.EnableKafka {
-		writer, err := newZapWriter(config.KafkaProducerCfg)
+		writer, err := newZapWriter(config.KafkaProducerCfg, config.CloudEventsCfg)
 		if err != nil {
 			return nil, err
 		}
+		// closes early and causes write errors
+		// defer writer.Close()
 		core := zapcore.NewCore(getEncoder(config.KafkaFormat, config),
 			writer, level)
+		// uncomment to test hook
 		// core = zapcore.RegisterHooks(core, zapHook)
 		cores = append(cores, core)
 	}
@@ -116,6 +119,7 @@ func newZapLogger(config Configuration) (Logger, error) {
 		zaplogger := &zapLogger{
 			sugaredLogger: logger,
 		}
+		ceFields := ceGetFields(config.CloudEventsCfg)
 		return zaplogger.WithFields(ceFields), nil
 	}
 	return &zapLogger{
