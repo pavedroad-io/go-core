@@ -61,17 +61,21 @@ const (
 
 // ProducerConfiguration provides kafka producer configuration type
 type ProducerConfiguration struct {
-	Brokers     []string
-	Topic       string
-	Partition   kafkaPartitionType
-	Key         kafkaKeyType
-	KeyName     string
-	Compression compressionType
-	AckWait     ackWaitType
-	FlushFreq   time.Duration
-	EnableTLS   bool
-	TLSCfg      *tls.Config
-	EnableDebug bool
+	Brokers       []string
+	Topic         string
+	Partition     kafkaPartitionType
+	Key           kafkaKeyType
+	KeyName       string
+	Compression   compressionType
+	AckWait       ackWaitType
+	ProdFlushFreq time.Duration
+	ProdRetryMax  int
+	ProdRetryFreq time.Duration
+	MetaRetryMax  int
+	MetaRetryFreq time.Duration
+	EnableTLS     bool
+	TLSCfg        *tls.Config
+	EnableDebug   bool
 }
 
 // KafkaProducer wraps sarama producer with config
@@ -90,13 +94,13 @@ func newKafkaProducer(
 		sarama.Logger = stdlog.New(os.Stdout, "[sarama] ", stdlog.LstdFlags)
 	}
 	cfg := sarama.NewConfig()
-	cfg.Producer.Flush.Frequency = kpConfig.FlushFreq * time.Millisecond
 	cfg.Producer.Return.Successes = false
 	cfg.Producer.Return.Errors = false
-	cfg.Producer.Retry.Max = 10
-	cfg.Producer.Retry.Backoff = 100 * time.Millisecond
-	cfg.Metadata.Retry.Max = 10
-	cfg.Metadata.Retry.Backoff = 2 * time.Second
+	cfg.Producer.Flush.Frequency = kpConfig.ProdFlushFreq
+	cfg.Producer.Retry.Max = kpConfig.ProdRetryMax
+	cfg.Producer.Retry.Backoff = kpConfig.ProdRetryFreq
+	cfg.Metadata.Retry.Max = kpConfig.MetaRetryMax
+	cfg.Metadata.Retry.Backoff = kpConfig.MetaRetryFreq
 
 	switch kpConfig.Partition {
 	case HashPartition:

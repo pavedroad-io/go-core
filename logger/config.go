@@ -70,16 +70,20 @@ func DefaultKafkaCfg() ProducerConfiguration {
 		username = user.Username
 	}
 	return ProducerConfiguration{
-		Brokers:     []string{"localhost:9092"},
-		Topic:       "logs",
-		Partition:   RandomPartition,
-		Key:         FixedKey,
-		KeyName:     username,
-		Compression: CompressionSnappy,
-		AckWait:     WaitForLocal,
-		FlushFreq:   500, // milliseconds
-		EnableTLS:   false,
-		EnableDebug: false,
+		Brokers:       []string{"localhost:9092"},
+		Topic:         "logs",
+		Partition:     RandomPartition,
+		Key:           FixedKey,
+		KeyName:       username,
+		Compression:   CompressionSnappy,
+		AckWait:       WaitForLocal,
+		ProdFlushFreq: 500, // milliseconds
+		ProdRetryMax:  10,
+		ProdRetryFreq: 100, // milliseconds
+		MetaRetryMax:  10,
+		MetaRetryFreq: 2000, // milliseconds
+		EnableTLS:     false,
+		EnableDebug:   false,
 	}
 }
 
