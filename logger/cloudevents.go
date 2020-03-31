@@ -42,11 +42,7 @@ const (
 // KafkaProducer gets the cloudevents fields to add to the message
 func ceGetFields(config CloudEventsConfiguration) Fields {
 	// Field key values for cloudevents
-	var ceFields = Fields{
-		ceSourceKey:  "http://github.com/pavedroad-io/core/go/logger",
-		ceVersionKey: "1.0",
-		ceTypeKey:    "io.pavedroad.cloudevents.log",
-	}
+	var ceFields = Fields{}
 	if config.Source != "" {
 		ceFields[ceSourceKey] = config.Source
 	}

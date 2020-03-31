@@ -140,7 +140,7 @@ func TestConsole(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		stdout := filepath.Join("testdata", tc.Name+".stdout")
+		stdout := filepath.Join("testdata", tc.Name+".out")
 		fstdout, err := os.Create(stdout)
 		if err != nil {
 			t.Logf("Failed to create file %s: %s\n", stdout, err.Error())
@@ -327,6 +327,9 @@ func TestPubsub(t *testing.T) {
 				break readpubsub
 			}
 		}
+
+		pub := filepath.Join("testdata", tc.Name+".pub")
+		ioutil.WriteFile(pub, actual, 0644)
 
 		golden := filepath.Join("testdata", tc.Name+".golden")
 		if *update {

@@ -1,3 +1,4 @@
-*.log
 *.golden
-*.stdout
+*.log
+*.out
+*.pub
