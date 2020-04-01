@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -131,6 +132,16 @@ func dockerCompose(t *testing.T, file string, args ...string) error {
 		return err
 	}
 	return nil
+}
+
+var debug = flag.Bool("d", false, "Enable debug")
+
+func TestMain(m *testing.M) {
+	flag.Parse()
+	if *debug {
+		fmt.Printf("=== DEBUG Enabled\n")
+	}
+	os.Exit(m.Run())
 }
 
 func TestConsole(t *testing.T) {
@@ -318,6 +329,10 @@ func TestPubsub(t *testing.T) {
 			case msg := <-consumer.Messages():
 				consumer.MarkOffset(msg, "kafka-test")
 				actual = append(actual, msg.Value...)
+				actual = append(actual, "\n"...)
+				if *debug {
+					t.Logf("Consumer message: %s\n", msg.Value)
+				}
 			case err := <-consumer.Errors():
 				t.Logf("Consumer message error: %s\n", err.Error())
 			case <-interrupt:
