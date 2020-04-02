@@ -13,8 +13,9 @@ import (
 
 // Supported auto config environment names
 const (
-	LogAutoCfgEnvName   string = "PRLOG_AUTOCFG"
-	KafkaAutoCfgEnvName        = "PRKAFKA_AUTOCFG"
+	LogAutoCfgEnvName         string = "PRLOG_AUTOCFG"
+	KafkaAutoCfgEnvName              = "PRKAFKA_AUTOCFG"
+	CloudEventsAutoCfgEnvName        = "PRCE_AUTOCFG"
 )
 
 // Supported auto configuration types
@@ -26,14 +27,16 @@ const (
 
 // Supported environment name prefixes
 const (
-	LogEnvPrefix   string = "PRLOG"
-	KafkaEnvPrefix        = "PRKAFKA"
+	LogEnvPrefix         string = "PRLOG"
+	KafkaEnvPrefix              = "PRKAFKA"
+	CloudEventsEnvPrefix        = "PRCE"
 )
 
 // Supported config file names
 const (
-	LogFileName   string = "pr_log_config"
-	KafkaFileName        = "pr_kafka_config"
+	LogFileName         string = "pr_log_config"
+	KafkaFileName              = "pr_kafka_config"
+	CloudEventsFileName        = "pr_ce_config"
 )
 
 // logger global for go log pkg emulation
@@ -72,12 +75,25 @@ func DefaultKafkaCfg() ProducerConfiguration {
 		Partition:     RandomPartition,
 		Key:           FixedKey,
 		KeyName:       username,
-		CloudeventsID: HMAC,
 		Compression:   CompressionSnappy,
 		AckWait:       WaitForLocal,
-		FlushFreq:     500, // milliseconds
+		ProdFlushFreq: 500, // milliseconds
+		ProdRetryMax:  10,
+		ProdRetryFreq: 100, // milliseconds
+		MetaRetryMax:  10,
+		MetaRetryFreq: 2000, // milliseconds
 		EnableTLS:     false,
 		EnableDebug:   false,
+	}
+}
+
+// DefaultCloudEventsCfg returns default cloudevents configuration
+func DefaultCloudEventsCfg() CloudEventsConfiguration {
+	return CloudEventsConfiguration{
+		Source:      "http://github.com/pavedroad-io/core/go/logger",
+		SpecVersion: "1.0",
+		Type:        "io.pavedroad.cloudevents.log",
+		ID:          HMAC,
 	}
 }
 
@@ -91,6 +107,7 @@ func init() {
 		fmt.Printf("Could not create logger configuration %s:", err.Error())
 		os.Exit(1)
 	}
+
 	kafkaConfig := new(ProducerConfiguration)
 	err = EnvConfigure(DefaultKafkaCfg(), kafkaConfig,
 		os.Getenv(KafkaAutoCfgEnvName), KafkaFileName, KafkaEnvPrefix)
@@ -99,6 +116,18 @@ func init() {
 	} else {
 		fmt.Printf("Could not create kafka configuration %s:", err.Error())
 		if config.EnableKafka {
+			os.Exit(1)
+		}
+	}
+
+	ceConfig := new(CloudEventsConfiguration)
+	err = EnvConfigure(DefaultCloudEventsCfg(), ceConfig,
+		os.Getenv(CloudEventsAutoCfgEnvName), CloudEventsFileName, CloudEventsEnvPrefix)
+	if err == nil {
+		config.CloudEventsCfg = *ceConfig
+	} else {
+		fmt.Printf("Could not create cloudevents configuration %s:", err.Error())
+		if config.EnableCloudEvents {
 			os.Exit(1)
 		}
 	}

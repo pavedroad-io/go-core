@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -38,7 +39,7 @@ func readConfiguration(t *testing.T, testname string) (Configuration, error) {
 
 	err = yaml.Unmarshal(yamlbytes, &cfg)
 	if err != nil {
-		t.Logf("Failed to unmarshall %s config %s\n", input, err.Error())
+		t.Logf("Failed to unmarshal %s config %s\n", input, err.Error())
 		return cfg, err
 	}
 	return cfg, nil
@@ -52,7 +53,7 @@ func executeTests(t *testing.T, cfg Configuration) error {
 		return err
 	}
 
-	log.Debugf("Dugubf using %s", "Debugf (should not appear)")
+	log.Debugf("Debugf using %s", "Debugf (should not appear)")
 	log.Infof("Infof using %s", cfg.LogPackage)
 	log.Warnf("Warnf using %s", cfg.LogPackage)
 	log.Errorf("Errorf using %s", cfg.LogPackage)
@@ -115,7 +116,6 @@ func normalizeZapLine(t *testing.T, line string) ([]byte, error) {
 	}
 	jsonbytes = append(jsonbytes, "\n"...)
 	return append([]byte(prejson), jsonbytes...), nil
-	// return append([]byte(prejson), jsonbytes, "\n"...), nil
 }
 
 func dockerCompose(t *testing.T, file string, args ...string) error {
@@ -134,6 +134,16 @@ func dockerCompose(t *testing.T, file string, args ...string) error {
 	return nil
 }
 
+var debug = flag.Bool("d", false, "Enable debug")
+
+func TestMain(m *testing.M) {
+	flag.Parse()
+	if *debug {
+		fmt.Printf("=== DEBUG Enabled\n")
+	}
+	os.Exit(m.Run())
+}
+
 func TestConsole(t *testing.T) {
 	var cases = []Cases{
 		{"LogrusConsoleDefault", "logrus logger to console with default config"},
@@ -141,7 +151,7 @@ func TestConsole(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		stdout := filepath.Join("testdata", tc.Name+".stdout")
+		stdout := filepath.Join("testdata", tc.Name+".out")
 		fstdout, err := os.Create(stdout)
 		if err != nil {
 			t.Logf("Failed to create file %s: %s\n", stdout, err.Error())
@@ -276,7 +286,7 @@ func TestPubsub(t *testing.T) {
 
 	var (
 		brokers = []string{"localhost:9092"}
-		group   = "mygroup"
+		group   = "testgroup"
 		topics  = []string{"logs"}
 		config  = cluster.NewConfig()
 	)
@@ -319,6 +329,10 @@ func TestPubsub(t *testing.T) {
 			case msg := <-consumer.Messages():
 				consumer.MarkOffset(msg, "kafka-test")
 				actual = append(actual, msg.Value...)
+				actual = append(actual, "\n"...)
+				if *debug {
+					t.Logf("Consumer message: %s\n", msg.Value)
+				}
 			case err := <-consumer.Errors():
 				t.Logf("Consumer message error: %s\n", err.Error())
 			case <-interrupt:
@@ -328,6 +342,9 @@ func TestPubsub(t *testing.T) {
 				break readpubsub
 			}
 		}
+
+		pub := filepath.Join("testdata", tc.Name+".pub")
+		ioutil.WriteFile(pub, actual, 0644)
 
 		golden := filepath.Join("testdata", tc.Name+".golden")
 		if *update {
