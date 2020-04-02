@@ -94,13 +94,26 @@ func newKafkaProducer(
 		sarama.Logger = stdlog.New(os.Stdout, "[sarama] ", stdlog.LstdFlags)
 	}
 	cfg := sarama.NewConfig()
-	cfg.Producer.Return.Successes = false
+	// Consider reading the following two channels with goroutines
 	cfg.Producer.Return.Errors = false
-	cfg.Producer.Flush.Frequency = kpConfig.ProdFlushFreq
-	cfg.Producer.Retry.Max = kpConfig.ProdRetryMax
-	cfg.Producer.Retry.Backoff = kpConfig.ProdRetryFreq
-	cfg.Metadata.Retry.Max = kpConfig.MetaRetryMax
-	cfg.Metadata.Retry.Backoff = kpConfig.MetaRetryFreq
+	cfg.Producer.Return.Successes = false
+
+	// Override default values if config values are not zero
+	if kpConfig.ProdFlushFreq != 0 {
+		cfg.Producer.Flush.Frequency = kpConfig.ProdFlushFreq
+	}
+	if kpConfig.ProdRetryMax != 0 {
+		cfg.Producer.Retry.Max = kpConfig.ProdRetryMax
+	}
+	if kpConfig.ProdRetryFreq != 0 {
+		cfg.Producer.Retry.Backoff = kpConfig.ProdRetryFreq
+	}
+	if kpConfig.MetaRetryMax != 0 {
+		cfg.Metadata.Retry.Max = kpConfig.MetaRetryMax
+	}
+	if kpConfig.MetaRetryFreq != 0 {
+		cfg.Metadata.Retry.Backoff = kpConfig.MetaRetryFreq
+	}
 
 	switch kpConfig.Partition {
 	case HashPartition:
