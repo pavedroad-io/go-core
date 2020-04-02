@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -118,7 +119,7 @@ func normalizeZapLine(t *testing.T, line string) ([]byte, error) {
 	return append([]byte(prejson), jsonbytes...), nil
 }
 
-func dockerCompose(t *testing.T, file string, args ...string) error {
+func dockerCompose(file string, args ...string) error {
 	var myargs []string
 	if file != "" {
 		myargs = append(myargs, "-f", file)
@@ -128,20 +129,60 @@ func dockerCompose(t *testing.T, file string, args ...string) error {
 	cmd := exec.Command("docker-compose", myargs...)
 	err := cmd.Run()
 	if err != nil {
-		t.Logf("Failed to exec docker-compose %+v: %s\n", myargs, err.Error())
+		fmt.Printf("Failed to exec docker-compose %+v: %s\n", myargs, err.Error())
 		return err
 	}
 	return nil
 }
 
+func pubsubStartup() error {
+	err := dockerCompose("testdata/docker-compose.yaml", "up", "-d")
+	if err != nil {
+		fmt.Printf("Failed to startup kafka server\n")
+	}
+	return err
+}
+
+func pubsubShutdown() error {
+	err := dockerCompose("testdata/docker-compose.yaml", "down")
+	if err != nil {
+		fmt.Printf("Failed to shutdown kafka server\n")
+	}
+	return err
+}
+
 var debug = flag.Bool("d", false, "Enable debug")
 
 func TestMain(m *testing.M) {
+	var (
+		err  error = nil
+		code int   = 0
+	)
+
 	flag.Parse()
 	if *debug {
 		fmt.Printf("=== DEBUG Enabled\n")
 	}
-	os.Exit(m.Run())
+	runval := flag.Lookup("test.run").Value.String()
+	pubsub := regexp.MustCompile(runval).MatchString("Pubsub")
+
+	if pubsub {
+		fmt.Printf("=== START Pubsub server\n")
+		err = pubsubStartup()
+	}
+
+	if err == nil {
+		code = m.Run()
+	} else {
+		code = 1
+	}
+
+	if pubsub {
+		fmt.Printf("=== STOP  Pubsub server\n")
+		pubsubShutdown()
+	}
+
+	os.Exit(code)
 }
 
 func TestConsole(t *testing.T) {
@@ -291,12 +332,6 @@ func TestPubsub(t *testing.T) {
 		config  = cluster.NewConfig()
 	)
 
-	err := dockerCompose(t, "testdata/docker-compose.yaml", "up", "-d")
-	if err != nil {
-		t.Errorf("Failed to setup test: TestPubsub\n")
-		return
-	}
-
 	time.Sleep(5 * time.Second)
 	config.Consumer.Offsets.Initial = sarama.OffsetOldest
 	consumer, err := cluster.NewConsumer(brokers, group, topics, config)
@@ -364,9 +399,5 @@ func TestPubsub(t *testing.T) {
 		} else {
 			t.Logf("Passed test case %s\n", tc.Name)
 		}
-	}
-	err = dockerCompose(t, "testdata/docker-compose.yaml", "down")
-	if err != nil {
-		t.Logf("Failed to shutdown test: TestPubsub\n")
 	}
 }
