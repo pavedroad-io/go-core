@@ -214,7 +214,7 @@ func (l *zapLogger) Panicln(args ...interface{}) {
 }
 
 // WithFields add fixed fields to each log record
-func (l *zapLogger) WithFields(fields Fields) Logger {
+func (l *zapLogger) WithFields(fields LogFields) Logger {
 	var f = make([]interface{}, 0)
 	for k, v := range fields {
 		f = append(f, k)

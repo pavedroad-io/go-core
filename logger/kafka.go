@@ -13,7 +13,7 @@ import (
 )
 
 // TopicKey is Fields key to pass topic through WithFields
-// Example: log.WithFields(Fields{TopicKey: "mytopic"}).Infof(...)
+// Example: log.WithFields(LogFields{TopicKey: "mytopic"}).Infof(...)
 const TopicKey string = "topic"
 
 // kafkaPartitionType provides kafka partition type

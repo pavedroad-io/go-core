@@ -219,7 +219,7 @@ func (l *logrusLogger) Panicln(args ...interface{}) {
 }
 
 // WithFields converts logger to logger with Entry
-func (l *logrusLogger) WithFields(fields Fields) Logger {
+func (l *logrusLogger) WithFields(fields LogFields) Logger {
 	return &logrusLogEntry{
 		entry: l.logger.WithFields(convertToLogrusFields(fields)),
 	}
@@ -310,14 +310,14 @@ func (l *logrusLogEntry) Panicln(args ...interface{}) {
 }
 
 // WithFields add more fields to logger with Entry
-func (l *logrusLogEntry) WithFields(fields Fields) Logger {
+func (l *logrusLogEntry) WithFields(fields LogFields) Logger {
 	return &logrusLogEntry{
 		entry: l.entry.WithFields(convertToLogrusFields(fields)),
 	}
 }
 
 // convertToLogrusFields converts fields to logrus type
-func convertToLogrusFields(fields Fields) logrus.Fields {
+func convertToLogrusFields(fields LogFields) logrus.Fields {
 	logrusFields := logrus.Fields{}
 	for index, val := range fields {
 		logrusFields[index] = val

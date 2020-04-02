@@ -40,9 +40,9 @@ const (
 )
 
 // KafkaProducer gets the cloudevents fields to add to the message
-func ceGetFields(config CloudEventsConfiguration) Fields {
+func ceGetFields(config CloudEventsConfiguration) LogFields {
 	// Field key values for cloudevents
-	var ceFields = Fields{}
+	var ceFields = LogFields{}
 	if config.Source != "" {
 		ceFields[ceSourceKey] = config.Source
 	}

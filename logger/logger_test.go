@@ -64,6 +64,24 @@ func executeTests(t *testing.T, cfg Configuration) error {
 	return nil
 }
 
+func executeTopicTests(t *testing.T, cfg Configuration, topic string) error {
+	log, err := NewLogger(cfg)
+	if err != nil {
+		t.Errorf("Failed to instantiate %s logger: %s",
+			cfg.LogPackage, err.Error())
+		return err
+	}
+
+	topicfield := LogFields{TopicKey: topic}
+	log.WithFields(topicfield).Infof("Infof using %s", cfg.LogPackage)
+	log.WithFields(topicfield).Warnf("Warnf using %s", cfg.LogPackage)
+	log.WithFields(topicfield).Errorf("Errorf using %s", cfg.LogPackage)
+	log.WithFields(topicfield).Print("Print using", cfg.LogPackage)
+	log.WithFields(topicfield).Printf("Printf using %s", cfg.LogPackage)
+	log.WithFields(topicfield).Println("Println using", cfg.LogPackage)
+	return nil
+}
+
 func normalizeZapFile(t *testing.T, filename string) ([]byte, error) {
 	var zapbytes []byte
 
@@ -164,7 +182,7 @@ func TestMain(m *testing.M) {
 		fmt.Printf("=== DEBUG Enabled\n")
 	}
 	runval := flag.Lookup("test.run").Value.String()
-	pubsub := regexp.MustCompile(runval).MatchString("Pubsub")
+	pubsub := regexp.MustCompile("Pubsub").MatchString(runval)
 
 	if pubsub {
 		fmt.Printf("=== START Pubsub server\n")
@@ -306,12 +324,14 @@ func TestPubsub(t *testing.T) {
 	var testcases = []TestCases{
 		{"LogrusPubsubDefault", "logrus logger to kafka with default config"},
 		{"ZapPubsubDefault", "zap logger to kafka with default config"},
+		{"LogrusPubsubTopic", "logrus logger to kafka with test topic"},
+		{"ZapPubsubTopic", "zap logger to kafka with test topic"},
 	}
 
 	var (
 		brokers = []string{"localhost:9092"}
 		group   = "testgroup"
-		topics  = []string{"logs"}
+		topics  = []string{"logs", "test"}
 		config  = cluster.NewConfig()
 	)
 
@@ -327,17 +347,23 @@ func TestPubsub(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.Name, func(t *testing.T) {
+			topictest := regexp.MustCompile("Topic").MatchString(tc.Name)
 			cfg, err := readConfiguration(t, tc.Name)
 			if err != nil {
 				t.FailNow()
 			}
 
-			err = executeTests(t, cfg)
+			if topictest {
+				err = executeTopicTests(t, cfg, "test")
+			} else {
+				err = executeTests(t, cfg)
+			}
 			if err != nil {
 				t.FailNow()
 			}
 
 			var actual []byte
+			var message string
 			time.Sleep(2 * time.Second)
 			done := time.After(2 * time.Second)
 		readpubsub:
@@ -345,10 +371,13 @@ func TestPubsub(t *testing.T) {
 				select {
 				case msg := <-consumer.Messages():
 					consumer.MarkOffset(msg, "kafka-test")
-					actual = append(actual, msg.Value...)
-					actual = append(actual, "\n"...)
+					message = fmt.Sprintf("T:%s P:%d K:%s V:%s\n",
+						msg.Topic, msg.Partition, msg.Key, msg.Value)
+					actual = append(actual, message...)
+					// actual = append(actual, msg.Value...)
+					// actual = append(actual, "\n"...)
 					if *debug {
-						t.Logf("Consumer message: %s\n", msg.Value)
+						t.Log(message)
 					}
 				case err := <-consumer.Errors():
 					t.Logf("Consumer message error: %s\n", err.Error())
