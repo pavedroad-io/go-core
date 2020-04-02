@@ -1,0 +1,6 @@
+{"level":"info","msg":"Infof using logrus","source":"http://github.com/pavedroad-io/core/go/logger","specversion":"1.0","type":"io.pavedroad.cloudevents.log"}
+{"level":"warning","msg":"Warnf using logrus","source":"http://github.com/pavedroad-io/core/go/logger","specversion":"1.0","type":"io.pavedroad.cloudevents.log"}
+{"level":"error","msg":"Errorf using logrus","source":"http://github.com/pavedroad-io/core/go/logger","specversion":"1.0","type":"io.pavedroad.cloudevents.log"}
+{"level":"info","msg":"Print usinglogrus","source":"http://github.com/pavedroad-io/core/go/logger","specversion":"1.0","type":"io.pavedroad.cloudevents.log"}
+{"level":"info","msg":"Printf using logrus","source":"http://github.com/pavedroad-io/core/go/logger","specversion":"1.0","type":"io.pavedroad.cloudevents.log"}
+{"level":"info","msg":"Println using logrus","source":"http://github.com/pavedroad-io/core/go/logger","specversion":"1.0","type":"io.pavedroad.cloudevents.log"}

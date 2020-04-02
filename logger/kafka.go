@@ -12,7 +12,7 @@ import (
 	"github.com/Shopify/sarama"
 )
 
-// TopicKey is Fields key to pass topic through WithFields
+// TopicKey is LogFields key to pass topic through WithFields
 // Example: log.WithFields(LogFields{TopicKey: "mytopic"}).Infof(...)
 const TopicKey string = "topic"
 

@@ -86,11 +86,11 @@ func normalizeZapFile(t *testing.T, filename string) ([]byte, error) {
 	var zapbytes []byte
 
 	zaplog, err := os.Open(filename)
+	defer zaplog.Close()
 	if err != nil {
 		t.Errorf("Failed to open %s: %s", filename, err.Error())
 		return nil, err
 	}
-	defer zaplog.Close()
 
 	scanner := bufio.NewScanner(zaplog)
 	for scanner.Scan() {
@@ -173,16 +173,22 @@ var debug = flag.Bool("d", false, "Enable debug")
 
 func TestMain(m *testing.M) {
 	var (
-		err  error = nil
-		code int   = 0
+		err    error = nil
+		code   int   = 0
+		pubsub bool  = false
 	)
 
 	flag.Parse()
 	if *debug {
 		fmt.Printf("=== DEBUG Enabled\n")
 	}
+
 	runval := flag.Lookup("test.run").Value.String()
-	pubsub := regexp.MustCompile("Pubsub").MatchString(runval)
+	if runval == "" {
+		pubsub = true
+	} else {
+		pubsub = regexp.MustCompile("Pubsub").MatchString(runval)
+	}
 
 	if pubsub {
 		fmt.Printf("=== START Pubsub server\n")
@@ -374,8 +380,6 @@ func TestPubsub(t *testing.T) {
 					message = fmt.Sprintf("T:%s P:%d K:%s V:%s\n",
 						msg.Topic, msg.Partition, msg.Key, msg.Value)
 					actual = append(actual, message...)
-					// actual = append(actual, msg.Value...)
-					// actual = append(actual, "\n"...)
 					if *debug {
 						t.Log(message)
 					}
