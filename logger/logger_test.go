@@ -173,24 +173,36 @@ var debug = flag.Bool("d", false, "Enable debug")
 
 func TestMain(m *testing.M) {
 	var (
-		err    error = nil
-		code   int   = 0
-		pubsub bool  = false
+		err     error
+		code    int
+		pubsub  bool
+		subtest string
 	)
 
 	flag.Parse()
+	listval := flag.Lookup("test.list").Value.String()
+	runval := flag.Lookup("test.run").Value.String()
+	runsplit := strings.Split(runval, "/")
+	runtest := runsplit[0]
+	if len(runsplit) > 1 {
+		subtest = runsplit[1]
+	}
+
 	if *debug {
 		fmt.Printf("=== DEBUG Enabled\n")
+		fmt.Printf("--- runtest = <%+v>\n", runtest)
+		fmt.Printf("--- subtest = <%+v>\n", subtest)
+		fmt.Printf("--- subtest = <%+v>\n", subtest)
 	}
 
-	runval := flag.Lookup("test.run").Value.String()
-	if runval == "" {
+	if runtest == "" && subtest == "" {
 		pubsub = true
 	} else {
-		pubsub = regexp.MustCompile("Pubsub").MatchString(runval)
+		pubsub = regexp.MustCompile(runtest).MatchString("TestPubsub") ||
+			subtest != "" && regexp.MustCompile(subtest).MatchString("Pubsub")
 	}
 
-	if pubsub {
+	if pubsub && listval == "" {
 		fmt.Printf("=== START Pubsub server\n")
 		err = pubsubStartup()
 	}
@@ -201,7 +213,7 @@ func TestMain(m *testing.M) {
 		code = 1
 	}
 
-	if pubsub {
+	if pubsub && listval == "" {
 		fmt.Printf("=== STOP  Pubsub server\n")
 		pubsubShutdown()
 	}
