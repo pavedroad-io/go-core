@@ -12,6 +12,10 @@ import (
 	"github.com/Shopify/sarama"
 )
 
+// TopicKey is LogFields key to pass topic through WithFields
+// Example: log.WithFields(LogFields{TopicKey: "mytopic"}).Infof(...)
+const TopicKey string = "topic"
+
 // kafkaPartitionType provides kafka partition type
 type kafkaPartitionType string
 
@@ -200,6 +204,14 @@ func (kp *KafkaProducer) sendMessage(msg []byte) error {
 		key = sarama.StringEncoder(msgMap[ceLevelKey].(string))
 	}
 
+	// capture topic if passed else use default
+	topic, ok := msgMap[TopicKey]
+	if ok {
+		delete(msgMap, TopicKey)
+	} else {
+		topic = kp.kpConfig.Topic
+	}
+
 	// add cloudevents fields like id
 	err = kp.ceAddFields(kp.ceConfig, msgMap)
 	if err != nil {
@@ -214,7 +226,7 @@ func (kp *KafkaProducer) sendMessage(msg []byte) error {
 
 	kp.producer.Input() <- &sarama.ProducerMessage{
 		Key:   key,
-		Topic: kp.kpConfig.Topic,
+		Topic: topic.(string),
 		Value: sarama.ByteEncoder(newmsg),
 	}
 	return nil

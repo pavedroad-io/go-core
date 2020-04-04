@@ -1,0 +1,6 @@
+[36mINFO[0m Infof using logrus                            [36msource[0m="http://github.com/pavedroad-io/core/go/logger" [36mspecversion[0m=1.0 [36mtype[0m=io.pavedroad.cloudevents.log
+[33mWARN[0m Warnf using logrus                            [33msource[0m="http://github.com/pavedroad-io/core/go/logger" [33mspecversion[0m=1.0 [33mtype[0m=io.pavedroad.cloudevents.log
+[31mERRO[0m Errorf using logrus                           [31msource[0m="http://github.com/pavedroad-io/core/go/logger" [31mspecversion[0m=1.0 [31mtype[0m=io.pavedroad.cloudevents.log
+[36mINFO[0m Print usinglogrus                             [36msource[0m="http://github.com/pavedroad-io/core/go/logger" [36mspecversion[0m=1.0 [36mtype[0m=io.pavedroad.cloudevents.log
+[36mINFO[0m Printf using logrus                           [36msource[0m="http://github.com/pavedroad-io/core/go/logger" [36mspecversion[0m=1.0 [36mtype[0m=io.pavedroad.cloudevents.log
+[36mINFO[0m Println using logrus                          [36msource[0m="http://github.com/pavedroad-io/core/go/logger" [36mspecversion[0m=1.0 [36mtype[0m=io.pavedroad.cloudevents.log

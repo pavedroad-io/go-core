@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -21,7 +22,7 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-type Cases struct {
+type TestCases struct {
 	Name string
 	Desc string
 }
@@ -33,13 +34,13 @@ func readConfiguration(t *testing.T, testname string) (Configuration, error) {
 	input := filepath.Join("testdata", testname+".yaml")
 	yamlbytes, err := ioutil.ReadFile(input)
 	if err != nil {
-		t.Logf("Failed to read %s config: %s\n", input, err.Error())
+		t.Errorf("Failed to read %s config: %s\n", input, err.Error())
 		return cfg, err
 	}
 
 	err = yaml.Unmarshal(yamlbytes, &cfg)
 	if err != nil {
-		t.Logf("Failed to unmarshal %s config %s\n", input, err.Error())
+		t.Errorf("Failed to unmarshal %s config %s\n", input, err.Error())
 		return cfg, err
 	}
 	return cfg, nil
@@ -48,7 +49,7 @@ func readConfiguration(t *testing.T, testname string) (Configuration, error) {
 func executeTests(t *testing.T, cfg Configuration) error {
 	log, err := NewLogger(cfg)
 	if err != nil {
-		t.Logf("Failed to instantiate %s logger: %s",
+		t.Errorf("Failed to instantiate %s logger: %s",
 			cfg.LogPackage, err.Error())
 		return err
 	}
@@ -63,28 +64,46 @@ func executeTests(t *testing.T, cfg Configuration) error {
 	return nil
 }
 
+func executeTopicTests(t *testing.T, cfg Configuration, topic string) error {
+	log, err := NewLogger(cfg)
+	if err != nil {
+		t.Errorf("Failed to instantiate %s logger: %s",
+			cfg.LogPackage, err.Error())
+		return err
+	}
+
+	topicfield := LogFields{TopicKey: topic}
+	log.WithFields(topicfield).Infof("Infof using %s", cfg.LogPackage)
+	log.WithFields(topicfield).Warnf("Warnf using %s", cfg.LogPackage)
+	log.WithFields(topicfield).Errorf("Errorf using %s", cfg.LogPackage)
+	log.WithFields(topicfield).Print("Print using", cfg.LogPackage)
+	log.WithFields(topicfield).Printf("Printf using %s", cfg.LogPackage)
+	log.WithFields(topicfield).Println("Println using", cfg.LogPackage)
+	return nil
+}
+
 func normalizeZapFile(t *testing.T, filename string) ([]byte, error) {
 	var zapbytes []byte
 
 	zaplog, err := os.Open(filename)
+	defer zaplog.Close()
 	if err != nil {
-		t.Logf("Failed to open %s: %s", filename, err.Error())
+		t.Errorf("Failed to open %s: %s", filename, err.Error())
 		return nil, err
 	}
-	defer zaplog.Close()
 
 	scanner := bufio.NewScanner(zaplog)
 	for scanner.Scan() {
 		normbytes, err := normalizeZapLine(t, scanner.Text())
 		if err != nil {
-			t.Logf("Failed to normalize %s: %s\n",
+			t.Errorf("Failed to normalize %s: %s\n",
 				scanner.Text(), err.Error())
 			return nil, err
 		}
 		zapbytes = append(zapbytes, normbytes...)
 	}
 	if err := scanner.Err(); err != nil {
-		t.Logf("Failed to scan %s: %s", filename, err.Error())
+		t.Errorf("Failed to scan %s: %s", filename, err.Error())
 		return nil, err
 	}
 	return zapbytes, nil
@@ -96,7 +115,7 @@ func normalizeZapLine(t *testing.T, line string) ([]byte, error) {
 
 	index := strings.IndexByte(line, '{')
 	if index == -1 {
-		t.Logf("Failed to find JSON in line <%s>\n", line)
+		t.Errorf("Failed to find JSON in line <%s>\n", line)
 		return nil, errors.New("JSON scan failure")
 	} else if index == 0 {
 		jsontext = line
@@ -106,19 +125,19 @@ func normalizeZapLine(t *testing.T, line string) ([]byte, error) {
 	}
 	err := json.Unmarshal([]byte(jsontext), &jsonmap)
 	if err != nil {
-		t.Logf("Failed to unmarshal %+v err: %s\n", jsontext, err.Error())
+		t.Errorf("Failed to unmarshal %+v err: %s\n", jsontext, err.Error())
 		return nil, err
 	}
 	jsonbytes, err := json.Marshal(jsonmap)
 	if err != nil {
-		t.Logf("Failed to marshal %+v err: %s\n", jsonmap, err.Error())
+		t.Errorf("Failed to marshal %+v err: %s\n", jsonmap, err.Error())
 		return nil, err
 	}
 	jsonbytes = append(jsonbytes, "\n"...)
 	return append([]byte(prejson), jsonbytes...), nil
 }
 
-func dockerCompose(t *testing.T, file string, args ...string) error {
+func dockerCompose(file string, args ...string) error {
 	var myargs []string
 	if file != "" {
 		myargs = append(myargs, "-f", file)
@@ -128,174 +147,211 @@ func dockerCompose(t *testing.T, file string, args ...string) error {
 	cmd := exec.Command("docker-compose", myargs...)
 	err := cmd.Run()
 	if err != nil {
-		t.Logf("Failed to exec docker-compose %+v: %s\n", myargs, err.Error())
+		fmt.Printf("Failed to exec docker-compose %+v: %s\n", myargs, err.Error())
 		return err
 	}
 	return nil
 }
 
+func pubsubStartup() error {
+	err := dockerCompose("testdata/docker-compose.yaml", "up", "-d")
+	if err != nil {
+		fmt.Printf("Failed to startup kafka server\n")
+	}
+	return err
+}
+
+func pubsubShutdown() error {
+	err := dockerCompose("testdata/docker-compose.yaml", "down")
+	if err != nil {
+		fmt.Printf("Failed to shutdown kafka server\n")
+	}
+	return err
+}
+
 var debug = flag.Bool("d", false, "Enable debug")
 
 func TestMain(m *testing.M) {
+	var (
+		err     error
+		code    int
+		pubsub  bool
+		subtest string
+	)
+
 	flag.Parse()
+	listval := flag.Lookup("test.list").Value.String()
+	runval := flag.Lookup("test.run").Value.String()
+	runsplit := strings.Split(runval, "/")
+	runtest := runsplit[0]
+	if len(runsplit) > 1 {
+		subtest = runsplit[1]
+	}
+
 	if *debug {
 		fmt.Printf("=== DEBUG Enabled\n")
+		fmt.Printf("--- runtest = <%+v>\n", runtest)
+		fmt.Printf("--- subtest = <%+v>\n", subtest)
+		fmt.Printf("--- subtest = <%+v>\n", subtest)
 	}
-	os.Exit(m.Run())
+
+	if runtest == "" && subtest == "" {
+		pubsub = true
+	} else {
+		pubsub = regexp.MustCompile(runtest).MatchString("TestPubsub") ||
+			subtest != "" && regexp.MustCompile(subtest).MatchString("Pubsub")
+	}
+
+	if pubsub && listval == "" {
+		fmt.Printf("=== START Pubsub server\n")
+		err = pubsubStartup()
+	}
+
+	if err == nil {
+		code = m.Run()
+	} else {
+		code = 1
+	}
+
+	if pubsub && listval == "" {
+		fmt.Printf("=== STOP  Pubsub server\n")
+		pubsubShutdown()
+	}
+
+	os.Exit(code)
 }
 
 func TestConsole(t *testing.T) {
-	var cases = []Cases{
+	var testcases = []TestCases{
 		{"LogrusConsoleDefault", "logrus logger to console with default config"},
 		{"ZapConsoleDefault", "zap logger to console with default config"},
 	}
 
-	for _, tc := range cases {
-		stdout := filepath.Join("testdata", tc.Name+".out")
-		fstdout, err := os.Create(stdout)
-		if err != nil {
-			t.Logf("Failed to create file %s: %s\n", stdout, err.Error())
-			t.Errorf("Failed test case %s\n", tc.Name)
-			continue
-		}
-		saveout := os.Stdout
-		os.Stdout = fstdout
-
-		cfg, err := readConfiguration(t, tc.Name)
-		if err != nil {
-			t.Errorf("Failed test case %s\n", tc.Name)
-			continue
-		}
-
-		err = executeTests(t, cfg)
-		if err != nil {
-			t.Errorf("Failed test case %s\n", tc.Name)
-			continue
-		}
-
-		fstdout.Close()
-		os.Stdout = saveout
-
-		var actual []byte
-		if cfg.LogPackage == ZapType {
-			actual, err = normalizeZapFile(t, stdout)
+	for _, tc := range testcases {
+		t.Run(tc.Name, func(t *testing.T) {
+			stdout := filepath.Join("testdata", tc.Name+".out")
+			fstdout, err := os.Create(stdout)
+			defer fstdout.Close()
 			if err != nil {
-				t.Errorf("Failed test case %s\n", tc.Name)
-				continue
+				t.Fatalf("Failed to create file %s: %s\n", stdout, err.Error())
 			}
-		} else {
-			actual, err = ioutil.ReadFile(stdout)
+			saveout := os.Stdout
+			os.Stdout = fstdout
+
+			cfg, err := readConfiguration(t, tc.Name)
 			if err != nil {
-				t.Logf("Failed to read file %s: %s\n", stdout, err.Error())
-				t.Errorf("Failed test case %s\n", tc.Name)
-				continue
+				t.FailNow()
 			}
-		}
 
-		golden := filepath.Join("testdata", tc.Name+".golden")
-		if *update {
-			t.Logf("Updating %s\n", golden)
-			ioutil.WriteFile(golden, actual, 0644)
-		}
+			err = executeTests(t, cfg)
+			if err != nil {
+				t.FailNow()
+			}
 
-		expected, err := ioutil.ReadFile(golden)
-		if err != nil {
-			t.Logf("Failed to read file %s: %s\n", golden, err.Error())
-			t.Errorf("Failed test case %s\n", tc.Name)
-			continue
-		}
+			os.Stdout = saveout
 
-		if !bytes.Equal(actual, expected) {
-			t.Errorf("Failed test case %s\n", tc.Name)
-		} else {
-			t.Logf("Passed test case %s\n", tc.Name)
-		}
+			var actual []byte
+			if cfg.LogPackage == ZapType {
+				actual, err = normalizeZapFile(t, stdout)
+				if err != nil {
+					t.FailNow()
+				}
+			} else {
+				actual, err = ioutil.ReadFile(stdout)
+				if err != nil {
+					t.Fatalf("Failed to read file %s: %s\n", stdout, err.Error())
+				}
+			}
+
+			golden := filepath.Join("testdata", tc.Name+".golden")
+			if *update {
+				t.Logf("Updating %s\n", golden)
+				ioutil.WriteFile(golden, actual, 0644)
+			}
+
+			expected, err := ioutil.ReadFile(golden)
+			if err != nil {
+				t.Fatalf("Failed to read file %s: %s\n", golden, err.Error())
+			}
+
+			if !bytes.Equal(actual, expected) {
+				t.FailNow()
+			}
+		})
 	}
 }
 
 func TestLogfile(t *testing.T) {
-	var cases = []Cases{
+	var testcases = []TestCases{
 		{"LogrusLogfileDefault", "logrus logger to log file with default config"},
 		{"ZapLogfileDefault", "zap logger to log file with default config"},
 	}
 
-	for _, tc := range cases {
-		cfg, err := readConfiguration(t, tc.Name)
-		if err != nil {
-			t.Errorf("Failed test case %s\n", tc.Name)
-			continue
-		}
-
-		flogfile, err := os.Create(cfg.FileLocation)
-		if err != nil {
-			t.Logf("Failed to create file %s: %s\n",
-				cfg.FileLocation, err.Error())
-			t.Errorf("Failed test case %s\n", tc.Name)
-			continue
-		}
-		flogfile.Close()
-
-		err = executeTests(t, cfg)
-		if err != nil {
-			t.Errorf("Failed test case %s\n", tc.Name)
-			continue
-		}
-
-		var actual []byte
-		if cfg.LogPackage == ZapType {
-			actual, err = normalizeZapFile(t, cfg.FileLocation)
+	for _, tc := range testcases {
+		t.Run(tc.Name, func(t *testing.T) {
+			cfg, err := readConfiguration(t, tc.Name)
 			if err != nil {
-				t.Errorf("Failed test case %s\n", tc.Name)
-				continue
+				t.FailNow()
 			}
-		} else {
-			actual, err = ioutil.ReadFile(cfg.FileLocation)
+
+			flogfile, err := os.Create(cfg.FileLocation)
+			defer flogfile.Close()
 			if err != nil {
-				t.Logf("Failed to read file %s: %s\n",
+				t.Fatalf("Failed to create file %s: %s\n",
 					cfg.FileLocation, err.Error())
-				t.Errorf("Failed test case %s\n", tc.Name)
-				continue
 			}
-		}
 
-		golden := filepath.Join("testdata", tc.Name+".golden")
-		if *update {
-			t.Logf("Updating %s\n", golden)
-			ioutil.WriteFile(golden, actual, 0644)
-		}
+			err = executeTests(t, cfg)
+			if err != nil {
+				t.FailNow()
+			}
 
-		expected, err := ioutil.ReadFile(golden)
-		if err != nil {
-			t.Logf("Failed to read file %s: %s\n", golden, err.Error())
-			t.Errorf("Failed test case %s\n", tc.Name)
-			continue
-		}
+			var actual []byte
+			if cfg.LogPackage == ZapType {
+				actual, err = normalizeZapFile(t, cfg.FileLocation)
+				if err != nil {
+					t.FailNow()
+				}
+			} else {
+				actual, err = ioutil.ReadFile(cfg.FileLocation)
+				if err != nil {
+					t.Fatalf("Failed to read file %s: %s\n",
+						cfg.FileLocation, err.Error())
+				}
+			}
 
-		if !bytes.Equal(actual, expected) {
-			t.Errorf("Failed test case %s\n", tc.Name)
-		} else {
-			t.Logf("Passed test case %s\n", tc.Name)
-		}
+			golden := filepath.Join("testdata", tc.Name+".golden")
+			if *update {
+				t.Logf("Updating %s\n", golden)
+				ioutil.WriteFile(golden, actual, 0644)
+			}
+
+			expected, err := ioutil.ReadFile(golden)
+			if err != nil {
+				t.Fatalf("Failed to read file %s: %s\n", golden, err.Error())
+			}
+
+			if !bytes.Equal(actual, expected) {
+				t.FailNow()
+			}
+		})
 	}
 }
+
 func TestPubsub(t *testing.T) {
-	var cases = []Cases{
+	var testcases = []TestCases{
 		{"LogrusPubsubDefault", "logrus logger to kafka with default config"},
 		{"ZapPubsubDefault", "zap logger to kafka with default config"},
+		{"LogrusPubsubTopic", "logrus logger to kafka with test topic"},
+		{"ZapPubsubTopic", "zap logger to kafka with test topic"},
 	}
 
 	var (
 		brokers = []string{"localhost:9092"}
 		group   = "testgroup"
-		topics  = []string{"logs"}
+		topics  = []string{"logs", "test"}
 		config  = cluster.NewConfig()
 	)
-
-	err := dockerCompose(t, "testdata/docker-compose.yaml", "up", "-d")
-	if err != nil {
-		t.Errorf("Failed to setup test: TestPubsub\n")
-		return
-	}
 
 	time.Sleep(5 * time.Second)
 	config.Consumer.Offsets.Initial = sarama.OffsetOldest
@@ -307,66 +363,65 @@ func TestPubsub(t *testing.T) {
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 
-	for _, tc := range cases {
-		cfg, err := readConfiguration(t, tc.Name)
-		if err != nil {
-			t.Errorf("Failed test case %s\n", tc.Name)
-			continue
-		}
-
-		err = executeTests(t, cfg)
-		if err != nil {
-			t.Errorf("Failed test case %s\n", tc.Name)
-			continue
-		}
-
-		var actual []byte
-		time.Sleep(2 * time.Second)
-		done := time.After(2 * time.Second)
-	readpubsub:
-		for {
-			select {
-			case msg := <-consumer.Messages():
-				consumer.MarkOffset(msg, "kafka-test")
-				actual = append(actual, msg.Value...)
-				actual = append(actual, "\n"...)
-				if *debug {
-					t.Logf("Consumer message: %s\n", msg.Value)
-				}
-			case err := <-consumer.Errors():
-				t.Logf("Consumer message error: %s\n", err.Error())
-			case <-interrupt:
-				t.Logf("Consumer caught interrupt signal\n")
-				break readpubsub
-			case <-done:
-				break readpubsub
+	for _, tc := range testcases {
+		t.Run(tc.Name, func(t *testing.T) {
+			topictest := regexp.MustCompile("Topic").MatchString(tc.Name)
+			cfg, err := readConfiguration(t, tc.Name)
+			if err != nil {
+				t.FailNow()
 			}
-		}
 
-		pub := filepath.Join("testdata", tc.Name+".pub")
-		ioutil.WriteFile(pub, actual, 0644)
+			if topictest {
+				err = executeTopicTests(t, cfg, "test")
+			} else {
+				err = executeTests(t, cfg)
+			}
+			if err != nil {
+				t.FailNow()
+			}
 
-		golden := filepath.Join("testdata", tc.Name+".golden")
-		if *update {
-			t.Logf("Updating %s\n", golden)
-			ioutil.WriteFile(golden, actual, 0644)
-		}
+			var actual []byte
+			var message string
+			time.Sleep(2 * time.Second)
+			done := time.After(2 * time.Second)
+		readpubsub:
+			for {
+				select {
+				case msg := <-consumer.Messages():
+					consumer.MarkOffset(msg, "kafka-test")
+					message = fmt.Sprintf("T:%s P:%d K:%s V:%s\n",
+						msg.Topic, msg.Partition, msg.Key, msg.Value)
+					actual = append(actual, message...)
+					if *debug {
+						t.Log(message)
+					}
+				case err := <-consumer.Errors():
+					t.Logf("Consumer message error: %s\n", err.Error())
+				case <-interrupt:
+					t.Logf("Consumer caught interrupt signal\n")
+					break readpubsub
+				case <-done:
+					break readpubsub
+				}
+			}
 
-		expected, err := ioutil.ReadFile(golden)
-		if err != nil {
-			t.Logf("Failed to read file %s: %s\n", golden, err.Error())
-			t.Errorf("Failed test case %s\n", tc.Name)
-			continue
-		}
+			pub := filepath.Join("testdata", tc.Name+".pub")
+			ioutil.WriteFile(pub, actual, 0644)
 
-		if !bytes.Equal(actual, expected) {
-			t.Errorf("Failed test case %s\n", tc.Name)
-		} else {
-			t.Logf("Passed test case %s\n", tc.Name)
-		}
-	}
-	err = dockerCompose(t, "testdata/docker-compose.yaml", "down")
-	if err != nil {
-		t.Logf("Failed to shutdown test: TestPubsub\n")
+			golden := filepath.Join("testdata", tc.Name+".golden")
+			if *update {
+				t.Logf("Updating %s\n", golden)
+				ioutil.WriteFile(golden, actual, 0644)
+			}
+
+			expected, err := ioutil.ReadFile(golden)
+			if err != nil {
+				t.Fatalf("Failed to read file %s: %s\n", golden, err.Error())
+			}
+
+			if !bytes.Equal(actual, expected) {
+				t.FailNow()
+			}
+		})
 	}
 }

@@ -4,8 +4,8 @@ package logger
 
 import "errors"
 
-// Fields provided for calls to WithFields for structured logging
-type Fields map[string]interface{}
+// LogFields provided for calls to WithFields for structured logging
+type LogFields map[string]interface{}
 
 // PackageType provided to select underlying log package
 type PackageType string
@@ -113,5 +113,5 @@ type Logger interface {
 
 	Panicln(args ...interface{})
 
-	WithFields(keyValues Fields) Logger
+	WithFields(keyValues LogFields) Logger
 }
