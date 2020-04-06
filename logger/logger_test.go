@@ -43,7 +43,21 @@ func readConfiguration(t *testing.T, testname string) (Configuration, error) {
 		t.Errorf("Failed to unmarshal %s config %s\n", input, err.Error())
 		return cfg, err
 	}
+	if *rewrite {
+		err = writeConfiguration(t, input, cfg)
+		return cfg, err
+	}
 	return cfg, nil
+}
+
+func writeConfiguration(t *testing.T, file string, cfg Configuration) error {
+	ybytes, err := yaml.Marshal(cfg)
+	if err != nil {
+		t.Errorf("Failed to marshal %s config %s\n", file, err.Error())
+		return err
+	}
+	ioutil.WriteFile(file, ybytes, 0644)
+	return nil
 }
 
 func executeTests(t *testing.T, cfg Configuration) error {
@@ -170,6 +184,7 @@ func pubsubShutdown() error {
 }
 
 var debug = flag.Bool("d", false, "Enable debug")
+var rewrite = flag.Bool("r", false, "Rewrite config")
 
 func TestMain(m *testing.M) {
 	var (
@@ -189,10 +204,13 @@ func TestMain(m *testing.M) {
 	}
 
 	if *debug {
-		fmt.Printf("=== DEBUG Enabled\n")
+		fmt.Printf("=== INFO  Debug enabled\n")
 		fmt.Printf("--- runtest = <%+v>\n", runtest)
 		fmt.Printf("--- subtest = <%+v>\n", subtest)
-		fmt.Printf("--- subtest = <%+v>\n", subtest)
+	}
+
+	if *rewrite {
+		fmt.Printf("=== INFO  Rewriting config files\n")
 	}
 
 	if runtest == "" && subtest == "" {
