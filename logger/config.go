@@ -96,13 +96,11 @@ func DefaultKafkaCfg() ProducerConfiguration {
 // DefaultCloudEventsCfg returns default cloudevents configuration
 func DefaultCloudEventsCfg() CloudEventsConfiguration {
 	return CloudEventsConfiguration{
-		ID:          "ID",
-		Source:      "http://github.com/pavedroad-io/go-core/logger",
-		SpecVersion: "1.0",
-		Type:        "io.pavedroad.cloudevents.log",
-		Subject:     "RE",
-		SetID:       ceHMAC,
-		SetSubject:  ceLevelSubject,
+		SetID:           ceHMAC,
+		Source:          "http://github.com/pavedroad-io/go-core/logger",
+		SpecVersion:     "1.0",
+		Type:            "io.pavedroad.cloudevents.log",
+		SetSubjectLevel: true,
 	}
 }
 
@@ -125,7 +123,8 @@ func init() {
 	err = EnvConfigure(DefaultLogCfg(), config, os.Getenv(LogAutoCfgEnvName),
 		LogFileName, LogEnvPrefix)
 	if err != nil {
-		fmt.Printf("Could not create logger configuration %s:", err.Error())
+		fmt.Fprintf(os.Stderr, "Could not create logger configuration: %s\n",
+			err.Error())
 		os.Exit(1)
 	}
 
@@ -135,7 +134,8 @@ func init() {
 	if err == nil {
 		config.KafkaProducerCfg = *kafkaConfig
 	} else {
-		fmt.Printf("Could not create kafka configuration %s:", err.Error())
+		fmt.Fprintf(os.Stderr, "Could not create kafka configuration: %s\n",
+			err.Error())
 		if config.EnableKafka {
 			os.Exit(1)
 		}
@@ -143,11 +143,13 @@ func init() {
 
 	ceConfig := new(CloudEventsConfiguration)
 	err = EnvConfigure(DefaultCloudEventsCfg(), ceConfig,
-		os.Getenv(CloudEventsAutoCfgEnvName), CloudEventsFileName, CloudEventsEnvPrefix)
+		os.Getenv(CloudEventsAutoCfgEnvName), CloudEventsFileName,
+		CloudEventsEnvPrefix)
 	if err == nil {
 		config.CloudEventsCfg = *ceConfig
 	} else {
-		fmt.Printf("Could not create cloudevents configuration %s:", err.Error())
+		fmt.Fprintf(os.Stderr,
+			"Could not create cloudevents configuration: %s\n", err.Error())
 		if config.EnableCloudEvents {
 			os.Exit(1)
 		}
@@ -159,14 +161,15 @@ func init() {
 	if err == nil {
 		config.RotationCfg = *rotConfig
 	} else {
-		fmt.Printf("Could not create rotation configuration %s:", err.Error())
+		fmt.Fprintf(os.Stderr, "Could not create rotation configuration: %s\n",
+			err.Error())
 		if config.EnableRotation {
 			os.Exit(1)
 		}
 	}
 
 	if logger, err = NewLogger(*config); err != nil {
-		fmt.Printf("Could not instantiate %s logger package: %s",
+		fmt.Fprintf(os.Stderr, "Could not instantiate %s logger package: %s\n",
 			config.LogPackage, err.Error())
 		os.Exit(1)
 	}

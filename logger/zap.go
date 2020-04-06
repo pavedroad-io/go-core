@@ -29,7 +29,7 @@ func getEncoder(format FormatType, config Configuration) zapcore.Encoder {
 	}
 	if config.EnableCloudEvents {
 		encoderConfig.MessageKey = ceDataKey
-		if config.CloudEventsCfg.SetSubject == ceLevelSubject {
+		if config.CloudEventsCfg.SetSubjectLevel {
 			encoderConfig.LevelKey = ceSubjectKey
 		}
 	}

@@ -14,32 +14,19 @@ type ceSetIDType string
 
 // Types of cloudevents id fields
 const (
-	ceHMAC    ceSetIDType = "hmac"  // for de-duplication
-	ceUUID    ceSetIDType = "uuid"  // completely unique
-	ceIncrID  ceSetIDType = "incr"  // incremental
-	ceFuncID  ceSetIDType = "func"  // set by WithFields or FilterFunc
-	ceFixedID ceSetIDType = "fixed" // use config ID
-)
-
-// ceSSetubjectType provides cloudevents subject field type
-type ceSetSubjectType string
-
-// Types of cloudevents subject fields
-const (
-	ceLevelSubject ceSetSubjectType = "level" // insert log level
-	ceFixedSubject ceSetSubjectType = "fixed" // use config subject
-	ceSkipSubject  ceSetSubjectType = "skip"  // skip subject field
+	ceHMAC   ceSetIDType = "hmac" // for de-duplication
+	ceUUID   ceSetIDType = "uuid" // completely unique
+	ceIncrID ceSetIDType = "incr" // incremental
+	ceFuncID ceSetIDType = "func" // set by WithFields or FilterFunc
 )
 
 // CloudEventsConfiguration provides cloudevents configuration type
 type CloudEventsConfiguration struct {
-	ID          string
-	Source      string
-	SpecVersion string
-	Type        string
-	Subject     string
-	SetID       ceSetIDType
-	SetSubject  ceSetSubjectType
+	SetID           ceSetIDType
+	Source          string
+	SpecVersion     string
+	Type            string
+	SetSubjectLevel bool
 }
 
 // Keys for cloudevents fields, values must be non-empty strings
@@ -62,13 +49,6 @@ func ceGetFields(config CloudEventsConfiguration) LogFields {
 	defaultCfg := DefaultCloudEventsCfg()
 
 	// cloudevents fields must contain non-empty strings
-	if config.SetID == ceFixedID {
-		if config.ID == "" {
-			ceFields[ceIDKey] = defaultCfg.ID
-		} else {
-			ceFields[ceIDKey] = config.ID
-		}
-	}
 	if config.Source == "" {
 		ceFields[ceSourceKey] = defaultCfg.Source
 	} else {
@@ -83,13 +63,6 @@ func ceGetFields(config CloudEventsConfiguration) LogFields {
 		ceFields[ceTypeKey] = defaultCfg.Type
 	} else {
 		ceFields[ceTypeKey] = config.Type
-	}
-	if config.SetSubject == ceFixedSubject {
-		if config.Subject == "" {
-			ceFields[ceSubjectKey] = defaultCfg.Subject
-		} else {
-			ceFields[ceSubjectKey] = config.Subject
-		}
 	}
 	return ceFields
 }
@@ -118,9 +91,6 @@ func (kp *KafkaProducer) ceAddFields(config CloudEventsConfiguration,
 			return err
 		}
 		msgMap[string(ceIDKey)] = id
-	case ceFixedID:
-		// set by configuration only for console and logfiles
-		fallthrough
 	case ceHMAC:
 		fallthrough
 	default:

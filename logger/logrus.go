@@ -44,7 +44,7 @@ func getFormatter(format FormatType, config Configuration) logrus.Formatter {
 	if config.EnableCloudEvents {
 		fieldmap[logrus.FieldKeyMsg] = ceDataKey
 		fieldmap[logrus.FieldKeyTime] = ceTimeKey
-		if config.CloudEventsCfg.SetSubject == ceLevelSubject {
+		if config.CloudEventsCfg.SetSubjectLevel {
 			fieldmap[logrus.FieldKeyLevel] = ceSubjectKey
 		}
 	}

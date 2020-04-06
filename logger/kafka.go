@@ -67,7 +67,7 @@ const (
 // FilterFunc func to add/modify/remove message map entries and return kafka key
 type FilterFunc func(*map[string]interface{})
 
-// KeyFunc func to add/modify/remove message map entries and return kafka key
+// KeyFunc func to return key calculated from kafka message contents
 type KeyFunc func(*map[string]interface{}) string
 
 // ProducerConfiguration provides kafka producer configuration type
@@ -108,11 +108,11 @@ func newKafkaProducer(
 		sarama.Logger = stdlog.New(os.Stdout, "[sarama] ", stdlog.LstdFlags)
 	}
 	cfg := sarama.NewConfig()
-	// Consider reading the following two channels with goroutines
+	// TODO Consider reading the following two channels with goroutines
 	cfg.Producer.Return.Errors = false
 	cfg.Producer.Return.Successes = false
 
-	// Override default values if config values are not zero
+	// Set producer values if config values are not zero
 	if kpConfig.ProdFlushFreq != 0 {
 		cfg.Producer.Flush.Frequency = kpConfig.ProdFlushFreq
 	}
