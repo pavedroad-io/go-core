@@ -4,17 +4,18 @@ package logger
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	lumberjack "gopkg.in/natefinch/lumberjack.v2"
 )
 
 // zapLogger represents a zap sugar logger
 type zapLogger struct {
 	sugaredLogger *zap.SugaredLogger
+	kafkaWriter   *ZapWriter
 }
 
 // getEncoder returns a zap encoder
@@ -22,27 +23,29 @@ func getEncoder(format FormatType, config Configuration) zapcore.Encoder {
 	encoderConfig := zap.NewProductionEncoderConfig()
 	if config.EnableTimeStamps {
 		encoderConfig.EncodeTime = zapcore.RFC3339TimeEncoder
+		encoderConfig.TimeKey = ceTimeKey
 	} else {
 		encoderConfig.TimeKey = ""
 	}
-	if config.EnableColorLevels {
-		encoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+	if config.EnableCloudEvents {
+		encoderConfig.MessageKey = ceDataKey
+		if config.CloudEventsCfg.SetSubject == ceLevelSubject {
+			encoderConfig.LevelKey = ceSubjectKey
+		}
 	}
+	encoderConfig.CallerKey = ""
 
 	switch format {
 	case JSONFormat:
 		return zapcore.NewJSONEncoder(encoderConfig)
 	case CEFormat:
-		if config.EnableTimeStamps {
-			encoderConfig.TimeKey = ceTimeKey
-		}
-		encoderConfig.LevelKey = ceLevelKey
-		encoderConfig.MessageKey = ceMessageKey
-		encoderConfig.CallerKey = ""
 		return zapcore.NewJSONEncoder(encoderConfig)
 	case TextFormat:
 		fallthrough
 	default:
+		if config.EnableColorLevels {
+			encoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+		}
 		return zapcore.NewConsoleEncoder(encoderConfig)
 	}
 }
@@ -67,14 +70,24 @@ func getZapLevel(level LevelType) zapcore.Level {
 	}
 }
 
-// zapHook is a temporary hook for testing
-func zapHook(entry zapcore.Entry) error {
-	fmt.Printf("ZapHook: entry <%+v>\n", entry)
+// zapDebugHook is a hook for testing
+func zapDebugHook(entry zapcore.Entry) error {
+	fmt.Fprintf(os.Stderr, "entry <%+v>\n", entry)
 	return nil
 }
 
 // newZapLogger returns a zap logger instance
+func addDebugHook(core zapcore.Core, debug bool) (zapcore.Core, bool) {
+	if debug {
+		core = zapcore.RegisterHooks(core, zapDebugHook)
+	}
+	return core, false
+}
+
+// newZapLogger returns a zap logger instance
 func newZapLogger(config Configuration) (Logger, error) {
+	var kafkaWriter *ZapWriter
+	debug := config.EnableDebug
 	level := getZapLevel(config.LogLevel)
 	cores := []zapcore.Core{}
 
@@ -83,31 +96,43 @@ func newZapLogger(config Configuration) (Logger, error) {
 		if err != nil {
 			return nil, err
 		}
-		// closes early and causes write errors
-		// defer writer.Close()
+		kafkaWriter = writer
 		core := zapcore.NewCore(getEncoder(config.KafkaFormat, config),
 			writer, level)
-		// uncomment to test hook
-		// core = zapcore.RegisterHooks(core, zapHook)
+		core, debug = addDebugHook(core, debug)
 		cores = append(cores, core)
 	}
 
 	if config.EnableConsole {
-		writer := zapcore.Lock(os.Stdout)
+		var cwriter io.Writer
+		if config.ConsoleWriter == Stderr {
+			cwriter = os.Stderr
+		} else {
+			cwriter = os.Stdout
+		}
+		writer := zapcore.Lock(zapcore.AddSync(cwriter))
 		core := zapcore.NewCore(getEncoder(config.ConsoleFormat, config),
 			writer, level)
+		core, debug = addDebugHook(core, debug)
 		cores = append(cores, core)
 	}
 
 	if config.EnableFile {
-		writer := zapcore.AddSync(&lumberjack.Logger{
-			Filename: config.FileLocation,
-			MaxSize:  100,
-			Compress: true,
-			MaxAge:   28,
-		})
+		var fwriter io.Writer
+		var err error
+		if config.EnableRotation {
+			fwriter = rotationLogger(config.RotationCfg)
+		} else {
+			fwriter, err = os.OpenFile(config.FileLocation,
+				os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			if err != nil {
+				return nil, err
+			}
+		}
+		writer := zapcore.AddSync(fwriter)
 		core := zapcore.NewCore(getEncoder(config.FileFormat, config),
 			writer, level)
+		core, debug = addDebugHook(core, debug)
 		cores = append(cores, core)
 	}
 
@@ -115,16 +140,15 @@ func newZapLogger(config Configuration) (Logger, error) {
 	logger := zap.New(combinedCore).Sugar()
 	defer logger.Sync()
 
+	zaplogger := &zapLogger{
+		sugaredLogger: logger,
+		kafkaWriter:   kafkaWriter,
+	}
 	if config.EnableCloudEvents {
-		zaplogger := &zapLogger{
-			sugaredLogger: logger,
-		}
 		ceFields := ceGetFields(config.CloudEventsCfg)
 		return zaplogger.WithFields(ceFields), nil
 	}
-	return &zapLogger{
-		sugaredLogger: logger,
-	}, nil
+	return zaplogger, nil
 }
 
 // The following methods meet the contract for the logger interface
@@ -213,7 +237,7 @@ func (l *zapLogger) Panicln(args ...interface{}) {
 	l.sugaredLogger.Panic(strings.TrimRight(fmt.Sprintln(args...), "\n"))
 }
 
-// WithFields add fixed fields to each log record
+// WithFields adds fixed fields to each log record
 func (l *zapLogger) WithFields(fields LogFields) Logger {
 	var f = make([]interface{}, 0)
 	for k, v := range fields {
@@ -221,5 +245,17 @@ func (l *zapLogger) WithFields(fields LogFields) Logger {
 		f = append(f, v)
 	}
 	newLogger := l.sugaredLogger.With(f...)
-	return &zapLogger{newLogger}
+	return &zapLogger{newLogger, l.kafkaWriter}
+}
+
+// WithKafkaFilterFn adds a filter function for each kafka record
+func (l *zapLogger) WithKafkaFilterFn(filterFn FilterFunc) Logger {
+	l.kafkaWriter.kp.kpConfig.filterFn = filterFn
+	return l
+}
+
+// WithKafkaKeyFn adds a key function for each kafka record
+func (l *zapLogger) WithKafkaKeyFn(keyFn KeyFunc) Logger {
+	l.kafkaWriter.kp.kpConfig.keyFn = keyFn
+	return l
 }

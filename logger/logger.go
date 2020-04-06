@@ -2,7 +2,9 @@
 
 package logger
 
-import "errors"
+import (
+	"errors"
+)
 
 // LogFields provided for calls to WithFields for structured logging
 type LogFields map[string]interface{}
@@ -13,7 +15,7 @@ type PackageType string
 // Supported log packages
 const (
 	ZapType    PackageType = "zap"
-	LogrusType             = "logrus"
+	LogrusType PackageType = "logrus"
 )
 
 // LevelType provided to select log level
@@ -22,11 +24,11 @@ type LevelType string
 // Supported log levels
 const (
 	DebugType LevelType = "debug"
-	InfoType            = "info" // default
-	WarnType            = "warn"
-	ErrorType           = "error"
-	FatalType           = "fatal"
-	PanicType           = "panic"
+	InfoType  LevelType = "info" // default
+	WarnType  LevelType = "warn"
+	ErrorType LevelType = "error"
+	FatalType LevelType = "fatal"
+	PanicType LevelType = "panic"
 )
 
 // FormatType provided to select logger format
@@ -35,8 +37,17 @@ type FormatType string
 // Types of logger formats
 const (
 	JSONFormat FormatType = "json"
-	TextFormat            = "text" // default
-	CEFormat              = "cloudevents"
+	TextFormat FormatType = "text" // default
+	CEFormat   FormatType = "cloudevents"
+)
+
+// ConsoleType provided to select logger format
+type ConsoleType string
+
+// Types of logger formats
+const (
+	Stdout ConsoleType = "stdout" // default
+	Stderr ConsoleType = "stderr"
 )
 
 // Configuration stores the config for the logger
@@ -52,9 +63,13 @@ type Configuration struct {
 	KafkaProducerCfg  ProducerConfiguration
 	EnableConsole     bool
 	ConsoleFormat     FormatType
+	ConsoleWriter     ConsoleType
 	EnableFile        bool
 	FileFormat        FormatType
 	FileLocation      string
+	EnableRotation    bool
+	RotationCfg       RotationConfiguration
+	EnableDebug       bool
 }
 
 // NewLogger returns a Logger instance
@@ -114,4 +129,8 @@ type Logger interface {
 	Panicln(args ...interface{})
 
 	WithFields(keyValues LogFields) Logger
+
+	WithKafkaFilterFn(filter FilterFunc) Logger
+
+	WithKafkaKeyFn(filter KeyFunc) Logger
 }

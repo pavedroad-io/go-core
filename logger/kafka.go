@@ -22,8 +22,8 @@ type kafkaPartitionType string
 // Types of kafka partitioning to map to sarama
 const (
 	RandomPartition     kafkaPartitionType = "random" // default
-	HashPartition                          = "hash"
-	RoundRobinPartition                    = "roundrobin"
+	HashPartition       kafkaPartitionType = "hash"
+	RoundRobinPartition kafkaPartitionType = "roundrobin"
 )
 
 // kafkaKeyType provides kafka key type
@@ -32,10 +32,11 @@ type kafkaKeyType string
 // Types of kafka keys to map to sarama
 const (
 	LevelKey          kafkaKeyType = "level" // default
-	TimeSecondKey                  = "second"
-	TimeNanoSecondKey              = "nanosecond"
-	FixedKey                       = "fixed"
-	ExtractedKey                   = "extracted"
+	TimeSecondKey     kafkaKeyType = "second"
+	TimeNanoSecondKey kafkaKeyType = "nanosecond"
+	FixedKey          kafkaKeyType = "fixed"
+	ExtractedKey      kafkaKeyType = "extracted"
+	FunctionKey       kafkaKeyType = "function"
 )
 
 // compressionType provides kafka compression type
@@ -44,10 +45,10 @@ type compressionType string
 // Types of compression to map to sarama
 const (
 	CompressionNone   compressionType = "none" // default
-	CompressionGZIP                   = "gzip"
-	CompressionSnappy                 = "snappy"
-	CompressionLZ4                    = "lz4"
-	CompressionZSTD                   = "zstd"
+	CompressionGZIP   compressionType = "gzip"
+	CompressionSnappy compressionType = "snappy"
+	CompressionLZ4    compressionType = "lz4"
+	CompressionZSTD   compressionType = "zstd"
 )
 
 // ackWaitType provides kafka acknowledgment wait type
@@ -62,6 +63,12 @@ const (
 	// WaitForAll waits for all in-sync replicas to commit
 	WaitForAll = "all"
 )
+
+// FilterFunc func to add/modify/remove message map entries and return kafka key
+type FilterFunc func(*map[string]interface{})
+
+// KeyFunc func to add/modify/remove message map entries and return kafka key
+type KeyFunc func(*map[string]interface{}) string
 
 // ProducerConfiguration provides kafka producer configuration type
 type ProducerConfiguration struct {
@@ -80,6 +87,9 @@ type ProducerConfiguration struct {
 	EnableTLS     bool
 	TLSCfg        *tls.Config
 	EnableDebug   bool
+	enableFilter  bool
+	filterFn      FilterFunc
+	keyFn         KeyFunc
 }
 
 // KafkaProducer wraps sarama producer with config
@@ -173,6 +183,16 @@ func newKafkaProducer(
 	}, nil
 }
 
+// setFilterFn sets the kafka message filter function
+func (kp *KafkaProducer) setFilterFn(filterFn FilterFunc) {
+	kp.kpConfig.filterFn = filterFn
+}
+
+// setKeyFn sets the kafka message key function
+func (kp *KafkaProducer) setKeyFn(keyFn KeyFunc) {
+	kp.kpConfig.keyFn = keyFn
+}
+
 // sendMessage adds key and cloudevents ID before sending message to kafka
 func (kp *KafkaProducer) sendMessage(msg []byte) error {
 	var msgMap map[string]interface{}
@@ -182,27 +202,7 @@ func (kp *KafkaProducer) sendMessage(msg []byte) error {
 	if err != nil {
 		return err
 	}
-	// can extract data from message fields here
-	// set key based on kp config
-	var key sarama.Encoder
-	switch kp.kpConfig.Key {
-	case FixedKey:
-		key = sarama.StringEncoder(kp.kpConfig.KeyName)
-	case ExtractedKey:
-		if name, ok := msgMap[kp.kpConfig.KeyName].(string); ok {
-			key = sarama.StringEncoder(name)
-		} else {
-			return errors.New("Extracted key missing")
-		}
-	case TimeSecondKey:
-		key = sarama.StringEncoder(strconv.Itoa(int(time.Now().Unix())))
-	case TimeNanoSecondKey:
-		key = sarama.StringEncoder(strconv.Itoa(int(time.Now().UnixNano())))
-	case LevelKey:
-		fallthrough
-	default:
-		key = sarama.StringEncoder(msgMap[ceLevelKey].(string))
-	}
+	// begin data manipulation in message map here
 
 	// capture topic if passed else use default
 	topic, ok := msgMap[TopicKey]
@@ -216,6 +216,40 @@ func (kp *KafkaProducer) sendMessage(msg []byte) error {
 	err = kp.ceAddFields(kp.ceConfig, msgMap)
 	if err != nil {
 		return err
+	}
+
+	// filter function performs field manipulation
+	if kp.kpConfig.filterFn != nil {
+		kp.kpConfig.filterFn(&msgMap)
+	}
+
+	// end data manipulation in message map here
+	// set key based on kp config
+	var key sarama.Encoder
+	switch kp.kpConfig.Key {
+	case FixedKey:
+		key = sarama.StringEncoder(kp.kpConfig.KeyName)
+	case ExtractedKey:
+		if name, ok := msgMap[kp.kpConfig.KeyName].(string); ok {
+			key = sarama.StringEncoder(name)
+			delete(msgMap, kp.kpConfig.KeyName)
+		} else {
+			return errors.New("Extracted key missing")
+		}
+	case TimeSecondKey:
+		key = sarama.StringEncoder(strconv.Itoa(int(time.Now().Unix())))
+	case TimeNanoSecondKey:
+		key = sarama.StringEncoder(strconv.Itoa(int(time.Now().UnixNano())))
+	case FunctionKey:
+		if kp.kpConfig.keyFn != nil {
+			key = sarama.StringEncoder(kp.kpConfig.keyFn(&msgMap))
+			break
+		}
+		fallthrough
+	case LevelKey:
+		fallthrough
+	default:
+		key = sarama.StringEncoder(msgMap[ceSubjectKey].(string))
 	}
 
 	// re-marshal message after field manipulation

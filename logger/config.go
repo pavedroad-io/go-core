@@ -13,30 +13,33 @@ import (
 
 // Supported auto config environment names
 const (
-	LogAutoCfgEnvName         string = "PRLOG_AUTOCFG"
-	KafkaAutoCfgEnvName              = "PRKAFKA_AUTOCFG"
-	CloudEventsAutoCfgEnvName        = "PRCE_AUTOCFG"
+	LogAutoCfgEnvName         = "PRLOG_AUTOCFG"
+	KafkaAutoCfgEnvName       = "PRKAFKA_AUTOCFG"
+	CloudEventsAutoCfgEnvName = "PRCE_AUTOCFG"
+	RotationAutoCfgEnvName    = "PRROT_AUTOCFG"
 )
 
 // Supported auto configuration types
 const (
-	EnvConfig  string = "env"
-	FileConfig        = "file"
-	BothConfig        = "both"
+	EnvConfig  = "env"
+	FileConfig = "file"
+	BothConfig = "both"
 )
 
 // Supported environment name prefixes
 const (
-	LogEnvPrefix         string = "PRLOG"
-	KafkaEnvPrefix              = "PRKAFKA"
-	CloudEventsEnvPrefix        = "PRCE"
+	LogEnvPrefix         = "PRLOG"
+	KafkaEnvPrefix       = "PRKAFKA"
+	CloudEventsEnvPrefix = "PRCE"
+	RotationEnvPrefix    = "PRROT"
 )
 
 // Supported config file names
 const (
-	LogFileName         string = "pr_log_config"
-	KafkaFileName              = "pr_kafka_config"
-	CloudEventsFileName        = "pr_ce_config"
+	LogFileName         = "pr_log_config"
+	KafkaFileName       = "pr_kafka_config"
+	CloudEventsFileName = "pr_ce_config"
+	RotationFileName    = "pr_rot_config"
 )
 
 // logger global for go log pkg emulation
@@ -54,9 +57,12 @@ func DefaultLogCfg() Configuration {
 		KafkaFormat:       CEFormat,
 		EnableConsole:     false,
 		ConsoleFormat:     TextFormat,
+		ConsoleWriter:     Stdout,
 		EnableFile:        true,
 		FileFormat:        JSONFormat,
 		FileLocation:      "pavedroad.log",
+		EnableRotation:    false,
+		EnableDebug:       true,
 	}
 }
 
@@ -90,10 +96,25 @@ func DefaultKafkaCfg() ProducerConfiguration {
 // DefaultCloudEventsCfg returns default cloudevents configuration
 func DefaultCloudEventsCfg() CloudEventsConfiguration {
 	return CloudEventsConfiguration{
-		Source:      "http://github.com/pavedroad-io/core/go/logger",
+		ID:          "ID",
+		Source:      "http://github.com/pavedroad-io/go-core/logger",
 		SpecVersion: "1.0",
 		Type:        "io.pavedroad.cloudevents.log",
-		ID:          HMAC,
+		Subject:     "RE",
+		SetID:       ceHMAC,
+		SetSubject:  ceLevelSubject,
+	}
+}
+
+// DefaultRotationCfg returns default cloudevents configuration
+func DefaultRotationCfg() RotationConfiguration {
+	return RotationConfiguration{
+		Filename:   "pavedroad.log",
+		MaxSize:    100, // megabytes
+		MaxAge:     0,   // days, 0 = no expiration
+		MaxBackups: 0,   // keep all
+		LocalTime:  false,
+		Compress:   false,
 	}
 }
 
@@ -128,6 +149,18 @@ func init() {
 	} else {
 		fmt.Printf("Could not create cloudevents configuration %s:", err.Error())
 		if config.EnableCloudEvents {
+			os.Exit(1)
+		}
+	}
+
+	rotConfig := new(RotationConfiguration)
+	err = EnvConfigure(DefaultRotationCfg(), rotConfig,
+		os.Getenv(RotationAutoCfgEnvName), RotationFileName, RotationEnvPrefix)
+	if err == nil {
+		config.RotationCfg = *rotConfig
+	} else {
+		fmt.Printf("Could not create rotation configuration %s:", err.Error())
+		if config.EnableRotation {
 			os.Exit(1)
 		}
 	}
