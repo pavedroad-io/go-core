@@ -1,5 +1,3 @@
-// Based on github.com/amitrai48/logger/logger.go
-
 package logger
 
 import (

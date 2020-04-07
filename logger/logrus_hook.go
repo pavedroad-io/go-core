@@ -1,4 +1,4 @@
-// Based on github.com/kenjones-cisco/logrus-kafka-hook/hook.go
+// Inspired by github.com/kenjones-cisco/logrus-kafka-hook/hook.go
 
 package logger
 
@@ -91,25 +91,15 @@ func (h *LogrusConsoleHook) Fire(entry *logrus.Entry) error {
 }
 
 // LogrusDebugHook provides a debug hook
-type LogrusDebugHook struct {
-	levels []logrus.Level
-}
-
-// newLogrusDebugHook returns a debug hook instance
-func newLogrusDebugHook() *LogrusDebugHook {
-	// return the debug hook
-	return &LogrusDebugHook{
-		levels: logrus.AllLevels,
-	}
-}
+type LogrusDebugHook struct{}
 
 // Levels returns all log levels that are enabled
 func (h *LogrusDebugHook) Levels() []logrus.Level {
-	return h.levels
+	return logrus.AllLevels
 }
 
 // Fire prints the entry
 func (h *LogrusDebugHook) Fire(entry *logrus.Entry) error {
-	fmt.Fprintf(os.Stderr, "entry <%+v>\n", entry)
+	fmt.Fprintf(os.Stderr, "%+v\n", entry)
 	return nil
 }

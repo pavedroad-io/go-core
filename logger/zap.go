@@ -1,10 +1,11 @@
-// Based on github.com/amitrai48/logger/zap.go
+// Inspired by github.com/amitrai48/logger/zap.go
 
 package logger
 
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"strings"
 
@@ -15,7 +16,7 @@ import (
 // zapLogger represents a zap sugar logger
 type zapLogger struct {
 	sugaredLogger *zap.SugaredLogger
-	kafkaWriter   *ZapWriter
+	kafkaWriter   *ZapKafkaWriter
 }
 
 // getEncoder returns a zap encoder
@@ -25,7 +26,7 @@ func getEncoder(format FormatType, config Configuration) zapcore.Encoder {
 		encoderConfig.EncodeTime = zapcore.RFC3339TimeEncoder
 		encoderConfig.TimeKey = ceTimeKey
 	} else {
-		encoderConfig.TimeKey = ""
+		encoderConfig.TimeKey = zapcore.OmitKey
 	}
 	if config.EnableCloudEvents {
 		encoderConfig.MessageKey = ceDataKey
@@ -33,7 +34,9 @@ func getEncoder(format FormatType, config Configuration) zapcore.Encoder {
 			encoderConfig.LevelKey = ceSubjectKey
 		}
 	}
-	encoderConfig.CallerKey = ""
+	encoderConfig.NameKey = zapcore.OmitKey
+	encoderConfig.CallerKey = zapcore.OmitKey
+	encoderConfig.StacktraceKey = zapcore.OmitKey
 
 	switch format {
 	case JSONFormat:
@@ -72,34 +75,32 @@ func getZapLevel(level LevelType) zapcore.Level {
 
 // zapDebugHook is a hook for testing
 func zapDebugHook(entry zapcore.Entry) error {
-	fmt.Fprintf(os.Stderr, "entry <%+v>\n", entry)
+	fmt.Fprintf(os.Stderr, "%+v\n", entry)
 	return nil
 }
 
 // newZapLogger returns a zap logger instance
-func addDebugHook(core zapcore.Core, debug bool) (zapcore.Core, bool) {
-	if debug {
-		core = zapcore.RegisterHooks(core, zapDebugHook)
-	}
-	return core, false
-}
-
-// newZapLogger returns a zap logger instance
 func newZapLogger(config Configuration) (Logger, error) {
-	var kafkaWriter *ZapWriter
-	debug := config.EnableDebug
+	var kafkaWriter *ZapKafkaWriter
 	level := getZapLevel(config.LogLevel)
 	cores := []zapcore.Core{}
 
+	if config.EnableDebug {
+		writer := zapcore.Lock(zapcore.AddSync(ioutil.Discard))
+		encoder := zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig())
+		core := zapcore.NewCore(encoder, writer, zapcore.DebugLevel)
+		core = zapcore.RegisterHooks(core, zapDebugHook)
+		cores = append(cores, core)
+	}
+
 	if config.EnableKafka {
-		writer, err := newZapWriter(config.KafkaProducerCfg, config.CloudEventsCfg)
+		kafkaWriter, err := newZapKafkaWriter(config.KafkaProducerCfg,
+			config.CloudEventsCfg)
 		if err != nil {
 			return nil, err
 		}
-		kafkaWriter = writer
-		core := zapcore.NewCore(getEncoder(config.KafkaFormat, config),
-			writer, level)
-		core, debug = addDebugHook(core, debug)
+		encoder := getEncoder(config.KafkaFormat, config)
+		core := zapcore.NewCore(encoder, kafkaWriter, level)
 		cores = append(cores, core)
 	}
 
@@ -111,9 +112,8 @@ func newZapLogger(config Configuration) (Logger, error) {
 			cwriter = os.Stdout
 		}
 		writer := zapcore.Lock(zapcore.AddSync(cwriter))
-		core := zapcore.NewCore(getEncoder(config.ConsoleFormat, config),
-			writer, level)
-		core, debug = addDebugHook(core, debug)
+		encoder := getEncoder(config.ConsoleFormat, config)
+		core := zapcore.NewCore(encoder, writer, level)
 		cores = append(cores, core)
 	}
 
@@ -130,9 +130,8 @@ func newZapLogger(config Configuration) (Logger, error) {
 			}
 		}
 		writer := zapcore.AddSync(fwriter)
-		core := zapcore.NewCore(getEncoder(config.FileFormat, config),
-			writer, level)
-		core, debug = addDebugHook(core, debug)
+		encoder := getEncoder(config.FileFormat, config)
+		core := zapcore.NewCore(encoder, writer, level)
 		cores = append(cores, core)
 	}
 

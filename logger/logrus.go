@@ -1,4 +1,4 @@
-// Based on github.com/amitrai48/logger/logrus.go
+// Inspired by on github.com/amitrai48/logger/logrus.go
 
 package logger
 
@@ -133,19 +133,18 @@ func newLogrusLogger(config Configuration) (Logger, error) {
 	}
 
 	if config.EnableKafka {
-		hook, err := newLogrusKafkaHook(config.KafkaProducerCfg,
+		kafkaHook, err := newLogrusKafkaHook(config.KafkaProducerCfg,
 			config.CloudEventsCfg, getFormatter(config.KafkaFormat, config))
 		if err != nil {
 			return nil, err
 		}
 		// add the hook
-		lLogger.Hooks.Add(hook)
-		kafkaHook = hook
+		lLogger.Hooks.Add(kafkaHook)
 	}
 
 	if config.EnableDebug {
 		// use hook to provide log entry printing
-		hook := newLogrusDebugHook()
+		hook := &LogrusDebugHook{}
 		lLogger.Hooks.Add(hook)
 	}
 
