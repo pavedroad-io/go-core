@@ -96,34 +96,34 @@ func executeTopicTests(t *testing.T, cfg Configuration, topic string) error {
 	return nil
 }
 
-func normalizeZapFile(t *testing.T, filename string) ([]byte, error) {
-	var zapbytes []byte
+func normalizeJSONFile(t *testing.T, filename string) ([]byte, error) {
+	var jsonbytes []byte
 
-	zaplog, err := os.Open(filename)
-	defer zaplog.Close()
+	jsonlog, err := os.Open(filename)
+	defer jsonlog.Close()
 	if err != nil {
 		t.Errorf("Failed to open %s: %s", filename, err.Error())
 		return nil, err
 	}
 
-	scanner := bufio.NewScanner(zaplog)
+	scanner := bufio.NewScanner(jsonlog)
 	for scanner.Scan() {
-		normbytes, err := normalizeZapLine(t, scanner.Text())
+		normbytes, err := normalizeJSONLine(t, scanner.Text())
 		if err != nil {
 			t.Errorf("Failed to normalize %s: %s\n",
 				scanner.Text(), err.Error())
 			return nil, err
 		}
-		zapbytes = append(zapbytes, normbytes...)
+		jsonbytes = append(jsonbytes, normbytes...)
 	}
 	if err := scanner.Err(); err != nil {
 		t.Errorf("Failed to scan %s: %s", filename, err.Error())
 		return nil, err
 	}
-	return zapbytes, nil
+	return jsonbytes, nil
 }
 
-func normalizeZapLine(t *testing.T, line string) ([]byte, error) {
+func normalizeJSONLine(t *testing.T, line string) ([]byte, error) {
 	var jsonmap map[string]interface{}
 	var prejson, jsontext string
 
@@ -247,6 +247,7 @@ func TestConsole(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.Name, func(t *testing.T) {
+			var containsUnsortedJSON bool
 			stdout := filepath.Join("testdata", tc.Name+".out")
 			fstdout, err := os.Create(stdout)
 			defer fstdout.Close()
@@ -269,8 +270,8 @@ func TestConsole(t *testing.T) {
 			os.Stdout = saveout
 
 			var actual []byte
-			if cfg.LogPackage == ZapType {
-				actual, err = normalizeZapFile(t, stdout)
+			if containsUnsortedJSON {
+				actual, err = normalizeJSONFile(t, stdout)
 				if err != nil {
 					t.FailNow()
 				}
@@ -326,7 +327,7 @@ func TestLogfile(t *testing.T) {
 
 			var actual []byte
 			if cfg.LogPackage == ZapType {
-				actual, err = normalizeZapFile(t, cfg.FileLocation)
+				actual, err = normalizeJSONFile(t, cfg.FileLocation)
 				if err != nil {
 					t.FailNow()
 				}

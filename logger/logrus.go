@@ -23,14 +23,20 @@ type logrusLogEntry struct {
 	kafkaHook *LogrusKafkaHook
 }
 
-// ceFormatter provides the cloudevents formatter type
+// ceFormatter provides wrapper for the JSONFormatter (to insert CE fields)
 type ceFormatter struct {
 	logrus.JSONFormatter
+	fields LogFields
 }
 
-// Format overrides the JSON Format method for cloudevents
+// Format meets the interface for the logrus formatter
 func (f *ceFormatter) Format(entry *logrus.Entry) ([]byte, error) {
-	// TODO may no longer need this as msg now modified in sendMessage
+	// CE fields are added here, not by using WithFields
+	for k, v := range f.fields {
+		if _, ok := entry.Data[k]; !ok {
+			entry.Data[k] = v
+		}
+	}
 	msg, err := f.JSONFormatter.Format(entry)
 	if err != nil {
 		return nil, err
@@ -39,30 +45,32 @@ func (f *ceFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 }
 
 // getFormatter returns a logrus formatter
-func getFormatter(format FormatType, config Configuration) logrus.Formatter {
-	fieldmap := logrus.FieldMap{}
-	if config.EnableCloudEvents {
-		fieldmap[logrus.FieldKeyMsg] = ceDataKey
-		fieldmap[logrus.FieldKeyTime] = ceTimeKey
-		if config.CloudEventsCfg.SetSubjectLevel {
-			fieldmap[logrus.FieldKeyLevel] = ceSubjectKey
-		}
-	}
+func getFormatter(format FormatType, config Configuration,
+	fields LogFields) logrus.Formatter {
 
 	switch format {
 	case JSONFormat:
 		return &logrus.JSONFormatter{
 			DisableTimestamp: !config.EnableTimeStamps,
 			TimestampFormat:  time.RFC3339,
-			FieldMap:         fieldmap,
 		}
 	case CEFormat:
+		// Change keys for cloudevents
+		fieldmap := logrus.FieldMap{}
+		if config.EnableCloudEvents {
+			fieldmap[logrus.FieldKeyMsg] = ceDataKey
+			fieldmap[logrus.FieldKeyTime] = ceTimeKey
+			if config.CloudEventsCfg.SetSubjectLevel {
+				fieldmap[logrus.FieldKeyLevel] = ceSubjectKey
+			}
+		}
 		return &ceFormatter{
 			logrus.JSONFormatter{
 				DisableTimestamp: !config.EnableTimeStamps,
 				TimestampFormat:  time.RFC3339,
 				FieldMap:         fieldmap,
 			},
+			fields,
 		}
 	case TextFormat:
 		fallthrough
@@ -72,6 +80,7 @@ func getFormatter(format FormatType, config Configuration) logrus.Formatter {
 			TimestampFormat:  time.RFC3339,
 			FullTimestamp:    true,
 		}
+		// these settings create identical output for ttys and logs
 		if config.EnableColorLevels {
 			formatter.ForceColors = true
 		} else {
@@ -85,14 +94,11 @@ func getFormatter(format FormatType, config Configuration) logrus.Formatter {
 func newLogrusLogger(config Configuration) (Logger, error) {
 	var kafkaHook *LogrusKafkaHook
 	var cloudEvents *CloudEvents
+	var fields LogFields
 
 	level, err := logrus.ParseLevel(string(config.LogLevel))
 	if err != nil {
 		return nil, err
-	}
-
-	if config.EnableCloudEvents {
-		cloudEvents = newCloudEvents(config.CloudEventsCfg)
 	}
 
 	// set default to discard for kafka only, otherwise overridden
@@ -103,6 +109,11 @@ func newLogrusLogger(config Configuration) (Logger, error) {
 		Level:        level,
 		ExitFunc:     os.Exit,
 		ReportCaller: false,
+	}
+
+	if config.EnableCloudEvents {
+		cloudEvents = newCloudEvents(config.CloudEventsCfg)
+		fields = cloudEvents.fields
 	}
 
 	if config.EnableFile {
@@ -118,7 +129,7 @@ func newLogrusLogger(config Configuration) (Logger, error) {
 			}
 		}
 		lLogger.SetOutput(fwriter)
-		lLogger.SetFormatter(getFormatter(config.FileFormat, config))
+		lLogger.SetFormatter(getFormatter(config.FileFormat, config, fields))
 	} else if config.EnableConsole {
 		var cwriter io.Writer
 		if config.ConsoleWriter == Stderr {
@@ -126,7 +137,7 @@ func newLogrusLogger(config Configuration) (Logger, error) {
 		} else {
 			cwriter = os.Stdout
 		}
-		formatter := getFormatter(config.ConsoleFormat, config)
+		formatter := getFormatter(config.ConsoleFormat, config, fields)
 		if config.EnableFile {
 			// use hook to provide separate formatting for console
 			hook := newLogrusConsoleHook(cwriter, formatter)
@@ -139,9 +150,9 @@ func newLogrusLogger(config Configuration) (Logger, error) {
 	}
 
 	if config.EnableKafka {
+		formatter := getFormatter(config.KafkaFormat, config, fields)
 		kafkaHook, err = newLogrusKafkaHook(config.KafkaProducerCfg,
-			cloudEvents, config.CloudEventsCfg,
-			getFormatter(config.KafkaFormat, config))
+			cloudEvents, config.CloudEventsCfg, formatter)
 		if err != nil {
 			return nil, err
 		}
@@ -155,14 +166,10 @@ func newLogrusLogger(config Configuration) (Logger, error) {
 		lLogger.Hooks.Add(hook)
 	}
 
-	logruslogger := &logrusLogger{
+	return &logrusLogger{
 		logger:    lLogger,
 		kafkaHook: kafkaHook,
-	}
-	if config.EnableCloudEvents {
-		return logruslogger.WithFields(cloudEvents.fields), nil
-	}
-	return logruslogger, nil
+	}, nil
 }
 
 // The following meet the contract for the logger

@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/buffer"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -19,20 +20,45 @@ type zapLogger struct {
 	kafkaWriter   *ZapKafkaWriter
 }
 
+// ceEncoder provides wrapper for the JSONEncoder (to insert CE fields)
+type ceEncoder struct {
+	zapcore.Encoder
+	fields LogFields
+}
+
+// Clone meets the interface for the zapcore encoder
+func (e *ceEncoder) Clone() zapcore.Encoder {
+	return &ceEncoder{
+		e.Encoder.Clone(),
+		e.fields,
+	}
+}
+
+// EncodeEntry meets the interface for the zapcore encoder
+func (e *ceEncoder) EncodeEntry(ent zapcore.Entry,
+	fields []zapcore.Field) (*buffer.Buffer, error) {
+	// CE fields are added here, not by using WithFields
+	for key, val := range e.fields {
+		field := zapcore.Field{
+			Key:    key,
+			Type:   zapcore.StringType,
+			String: val.(string),
+		}
+		fields = append(fields, field)
+	}
+	return e.Encoder.EncodeEntry(ent, fields)
+}
+
 // getEncoder returns a zap encoder
-func getEncoder(format FormatType, config Configuration) zapcore.Encoder {
+func getEncoder(format FormatType, config Configuration,
+	fields LogFields) zapcore.Encoder {
+
 	encoderConfig := zap.NewProductionEncoderConfig()
 	if config.EnableTimeStamps {
 		encoderConfig.EncodeTime = zapcore.RFC3339TimeEncoder
 		encoderConfig.TimeKey = ceTimeKey
 	} else {
 		encoderConfig.TimeKey = zapcore.OmitKey
-	}
-	if config.EnableCloudEvents {
-		encoderConfig.MessageKey = ceDataKey
-		if config.CloudEventsCfg.SetSubjectLevel {
-			encoderConfig.LevelKey = ceSubjectKey
-		}
 	}
 	encoderConfig.NameKey = zapcore.OmitKey
 	encoderConfig.CallerKey = zapcore.OmitKey
@@ -42,7 +68,17 @@ func getEncoder(format FormatType, config Configuration) zapcore.Encoder {
 	case JSONFormat:
 		return zapcore.NewJSONEncoder(encoderConfig)
 	case CEFormat:
-		return zapcore.NewJSONEncoder(encoderConfig)
+		// Change keys for cloudevents
+		if config.EnableCloudEvents {
+			encoderConfig.MessageKey = ceDataKey
+			if config.CloudEventsCfg.SetSubjectLevel {
+				encoderConfig.LevelKey = ceSubjectKey
+			}
+		}
+		return &ceEncoder{
+			zapcore.NewJSONEncoder(encoderConfig),
+			fields,
+		}
 	case TextFormat:
 		fallthrough
 	default:
@@ -83,12 +119,14 @@ func zapDebugHook(entry zapcore.Entry) error {
 func newZapLogger(config Configuration) (Logger, error) {
 	var kafkaWriter *ZapKafkaWriter
 	var cloudEvents *CloudEvents
+	var fields LogFields
 	var err error
 	level := getZapLevel(config.LogLevel)
 	cores := []zapcore.Core{}
 
 	if config.EnableCloudEvents {
 		cloudEvents = newCloudEvents(config.CloudEventsCfg)
+		fields = cloudEvents.fields
 	}
 
 	if config.EnableDebug {
@@ -105,7 +143,7 @@ func newZapLogger(config Configuration) (Logger, error) {
 		if err != nil {
 			return nil, err
 		}
-		encoder := getEncoder(config.KafkaFormat, config)
+		encoder := getEncoder(config.KafkaFormat, config, fields)
 		core := zapcore.NewCore(encoder, kafkaWriter, level)
 		cores = append(cores, core)
 	}
@@ -118,7 +156,7 @@ func newZapLogger(config Configuration) (Logger, error) {
 			cwriter = os.Stdout
 		}
 		writer := zapcore.Lock(zapcore.AddSync(cwriter))
-		encoder := getEncoder(config.ConsoleFormat, config)
+		encoder := getEncoder(config.ConsoleFormat, config, fields)
 		core := zapcore.NewCore(encoder, writer, level)
 		cores = append(cores, core)
 	}
@@ -135,7 +173,7 @@ func newZapLogger(config Configuration) (Logger, error) {
 			}
 		}
 		writer := zapcore.AddSync(fwriter)
-		encoder := getEncoder(config.FileFormat, config)
+		encoder := getEncoder(config.FileFormat, config, fields)
 		core := zapcore.NewCore(encoder, writer, level)
 		cores = append(cores, core)
 	}
@@ -144,14 +182,10 @@ func newZapLogger(config Configuration) (Logger, error) {
 	logger := zap.New(combinedCore).Sugar()
 	defer logger.Sync()
 
-	zaplogger := &zapLogger{
+	return &zapLogger{
 		sugaredLogger: logger,
 		kafkaWriter:   kafkaWriter,
-	}
-	if config.EnableCloudEvents {
-		return zaplogger.WithFields(cloudEvents.fields), nil
-	}
-	return zaplogger, nil
+	}, nil
 }
 
 // The following methods meet the contract for the logger interface

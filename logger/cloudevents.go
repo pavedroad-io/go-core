@@ -98,32 +98,40 @@ func newCloudEvents(config CloudEventsConfiguration) *CloudEvents {
 	return &cloudEvents
 }
 
+// ceGetID returns the cloudevents id field for the message
+func (ce *CloudEvents) ceGetID(config CloudEventsConfiguration,
+	msgMap map[string]interface{}) (string, error) {
+
+	switch config.SetID {
+	case ceFuncID:
+		// set when using FilterFn or WithFields to supply id
+		return "", nil
+	case ceIncrID:
+		return ce.genIncrementalID(), nil
+	case ceUUID:
+		id, err := uuid.NewV4() // RFC4112
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("%s", id), nil
+	case ceHMAC:
+		fallthrough
+	default:
+		ce.hmacHash.Write([]byte(msgMap[string(ceDataKey)].(string)))
+		id := base64.StdEncoding.EncodeToString(ce.hmacHash.Sum(nil))
+		return id, nil
+	}
+}
+
 // ceAddFields adds the cloudevents id field to the message
 func (ce *CloudEvents) ceAddFields(config CloudEventsConfiguration,
 	msgMap map[string]interface{}) error {
 	// Other cloudevents fields could be added here based on config
 
-	switch config.SetID {
-	case ceFuncID:
-		// set by FilterFn or WithFields
-		break
-	case ceIncrID:
-		msgMap[string(ceIDKey)] = ce.genIncrementalID()
-	case ceUUID:
-		id, err := uuid.NewV4() // RFC4112
-		if err != nil {
-			return err
-		}
-		msgMap[string(ceIDKey)] = id
-	case ceHMAC:
-		fallthrough
-	default:
-		// key := []byte("pavedroad-secret")
-		// h := hmac.New(sha256.New, key)
-		// h.Write([]byte(msgMap[string(ceDataKey)].(string)))
-		ce.hmacHash.Write([]byte(msgMap[string(ceDataKey)].(string)))
-		id := base64.StdEncoding.EncodeToString(ce.hmacHash.Sum(nil))
-		msgMap[string(ceIDKey)] = id
+	id, err := ce.ceGetID(config, msgMap)
+	if err != nil {
+		return err
 	}
+	msgMap[string(ceIDKey)] = id
 	return nil
 }
