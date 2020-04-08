@@ -82,8 +82,14 @@ func zapDebugHook(entry zapcore.Entry) error {
 // newZapLogger returns a zap logger instance
 func newZapLogger(config Configuration) (Logger, error) {
 	var kafkaWriter *ZapKafkaWriter
+	var cloudEvents *CloudEvents
+	var err error
 	level := getZapLevel(config.LogLevel)
 	cores := []zapcore.Core{}
+
+	if config.EnableCloudEvents {
+		cloudEvents = newCloudEvents(config.CloudEventsCfg)
+	}
 
 	if config.EnableDebug {
 		writer := zapcore.Lock(zapcore.AddSync(ioutil.Discard))
@@ -94,8 +100,8 @@ func newZapLogger(config Configuration) (Logger, error) {
 	}
 
 	if config.EnableKafka {
-		kafkaWriter, err := newZapKafkaWriter(config.KafkaProducerCfg,
-			config.CloudEventsCfg)
+		kafkaWriter, err = newZapKafkaWriter(config.KafkaProducerCfg,
+			cloudEvents, config.CloudEventsCfg)
 		if err != nil {
 			return nil, err
 		}
@@ -119,7 +125,6 @@ func newZapLogger(config Configuration) (Logger, error) {
 
 	if config.EnableFile {
 		var fwriter io.Writer
-		var err error
 		if config.EnableRotation {
 			fwriter = rotationLogger(config.RotationCfg)
 		} else {
@@ -144,8 +149,7 @@ func newZapLogger(config Configuration) (Logger, error) {
 		kafkaWriter:   kafkaWriter,
 	}
 	if config.EnableCloudEvents {
-		ceFields := ceGetFields(config.CloudEventsCfg)
-		return zaplogger.WithFields(ceFields), nil
+		return zaplogger.WithFields(cloudEvents.fields), nil
 	}
 	return zaplogger, nil
 }

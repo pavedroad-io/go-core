@@ -12,6 +12,7 @@ import (
 // ZapKafkaWriter is a zap WriteSyncer (io.Writer) that writes messages to Kafka
 type ZapKafkaWriter struct {
 	kp        *KafkaProducer
+	ce        *CloudEvents
 	closed    int32          // Nonzero if closing, must access atomically
 	pendingWg sync.WaitGroup // WaitGroup for pending messages
 	closeMut  sync.Mutex
@@ -19,16 +20,19 @@ type ZapKafkaWriter struct {
 
 // newZapKafkaWriter returns a kafka io.writer instance
 func newZapKafkaWriter(
-	kpcfg ProducerConfiguration,
-	cecfg CloudEventsConfiguration) (*ZapKafkaWriter, error) {
+	kpCfg ProducerConfiguration, cloudEvents *CloudEvents,
+	ceCfg CloudEventsConfiguration) (*ZapKafkaWriter, error) {
 
 	// create an async producer
-	kp, err := newKafkaProducer(kpcfg, cecfg)
+	kp, err := newKafkaProducer(kpCfg, cloudEvents, ceCfg)
 	if err != nil {
 		return nil, err
 	}
 
-	zw := &ZapKafkaWriter{kp: kp}
+	zw := &ZapKafkaWriter{
+		kp: kp,
+		ce: cloudEvents,
+	}
 	return zw, nil
 }
 

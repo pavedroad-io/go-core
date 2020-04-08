@@ -362,6 +362,8 @@ func TestPubsub(t *testing.T) {
 		{"ZapPubsubDefault", "zap logger to kafka with default config"},
 		{"LogrusPubsubTopic", "logrus logger to kafka with test topic"},
 		{"ZapPubsubTopic", "zap logger to kafka with test topic"},
+		{"LogrusPubsubIncrID", "logrus logger to kafka with incremental ID"},
+		{"ZapPubsubIncrID", "zap logger to kafka with incremental ID"},
 	}
 
 	var (

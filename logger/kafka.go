@@ -94,14 +94,14 @@ type ProducerConfiguration struct {
 
 // KafkaProducer wraps sarama producer with config
 type KafkaProducer struct {
-	producer sarama.AsyncProducer
-	kpConfig ProducerConfiguration
-	ceConfig CloudEventsConfiguration
+	producer    sarama.AsyncProducer
+	kpConfig    ProducerConfiguration
+	cloudEvents *CloudEvents
+	ceConfig    CloudEventsConfiguration
 }
 
 // newKafkaProducer returns a kafka producer instance
-func newKafkaProducer(
-	kpConfig ProducerConfiguration,
+func newKafkaProducer(kpConfig ProducerConfiguration, cloudEvents *CloudEvents,
 	ceConfig CloudEventsConfiguration) (*KafkaProducer, error) {
 
 	if kpConfig.EnableDebug {
@@ -177,9 +177,10 @@ func newKafkaProducer(
 	}
 
 	return &KafkaProducer{
-		producer: producer,
-		kpConfig: kpConfig,
-		ceConfig: ceConfig,
+		producer:    producer,
+		kpConfig:    kpConfig,
+		cloudEvents: cloudEvents,
+		ceConfig:    ceConfig,
 	}, nil
 }
 
@@ -213,9 +214,11 @@ func (kp *KafkaProducer) sendMessage(msg []byte) error {
 	}
 
 	// add cloudevents fields like id
-	err = kp.ceAddFields(kp.ceConfig, msgMap)
-	if err != nil {
-		return err
+	if kp.cloudEvents != nil {
+		err = kp.cloudEvents.ceAddFields(kp.ceConfig, msgMap)
+		if err != nil {
+			return err
+		}
 	}
 
 	// filter function performs field manipulation

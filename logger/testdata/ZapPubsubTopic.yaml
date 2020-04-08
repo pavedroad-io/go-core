@@ -5,6 +5,7 @@ enablecolorlevels: true
 enablecloudevents: true
 cloudeventscfg:
   setid: hmac
+  hmackey: pavedroad
   source: http://github.com/pavedroad-io/core/go/logger
   specversion: "1.0"
   type: io.pavedroad.cloudevents.log

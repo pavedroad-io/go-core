@@ -84,11 +84,17 @@ func getFormatter(format FormatType, config Configuration) logrus.Formatter {
 // newLogrusLogger return a logrus logger instance
 func newLogrusLogger(config Configuration) (Logger, error) {
 	var kafkaHook *LogrusKafkaHook
+	var cloudEvents *CloudEvents
 
 	level, err := logrus.ParseLevel(string(config.LogLevel))
 	if err != nil {
 		return nil, err
 	}
+
+	if config.EnableCloudEvents {
+		cloudEvents = newCloudEvents(config.CloudEventsCfg)
+	}
+
 	// set default to discard for kafka only, otherwise overridden
 	lLogger := &logrus.Logger{
 		Out:          ioutil.Discard,
@@ -133,8 +139,9 @@ func newLogrusLogger(config Configuration) (Logger, error) {
 	}
 
 	if config.EnableKafka {
-		kafkaHook, err := newLogrusKafkaHook(config.KafkaProducerCfg,
-			config.CloudEventsCfg, getFormatter(config.KafkaFormat, config))
+		kafkaHook, err = newLogrusKafkaHook(config.KafkaProducerCfg,
+			cloudEvents, config.CloudEventsCfg,
+			getFormatter(config.KafkaFormat, config))
 		if err != nil {
 			return nil, err
 		}
@@ -153,8 +160,7 @@ func newLogrusLogger(config Configuration) (Logger, error) {
 		kafkaHook: kafkaHook,
 	}
 	if config.EnableCloudEvents {
-		ceFields := ceGetFields(config.CloudEventsCfg)
-		return logruslogger.WithFields(ceFields), nil
+		return logruslogger.WithFields(cloudEvents.fields), nil
 	}
 	return logruslogger, nil
 }

@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
+	"hash"
 
 	"github.com/gofrs/uuid"
 )
@@ -14,7 +15,7 @@ type ceSetIDType string
 
 // Types of cloudevents id fields
 const (
-	ceHMAC   ceSetIDType = "hmac" // for de-duplication
+	ceHMAC   ceSetIDType = "hmac" // message signature
 	ceUUID   ceSetIDType = "uuid" // completely unique
 	ceIncrID ceSetIDType = "incr" // incremental
 	ceFuncID ceSetIDType = "func" // set by WithFields or FilterFunc
@@ -23,6 +24,7 @@ const (
 // CloudEventsConfiguration provides cloudevents configuration type
 type CloudEventsConfiguration struct {
 	SetID           ceSetIDType
+	HmacKey         string
 	Source          string
 	SpecVersion     string
 	Type            string
@@ -42,8 +44,26 @@ const (
 	ceDataKey         = "data"            // Optional - no specific format
 )
 
-// KafkaProducer gets the cloudevents fields to add to the message
-func ceGetFields(config CloudEventsConfiguration) LogFields {
+type incrementalFn func() string
+
+// CloudEvents provides the cloudevents object type
+type CloudEvents struct {
+	fields           LogFields
+	genIncrementalID incrementalFn
+	hmacHash         hash.Hash
+}
+
+// incrementalID returns function that returns IDs starting with zero
+func incrementalID() func() string {
+	var i uint64
+	return func() string {
+		i++
+		return fmt.Sprintf("%020d", i)
+	}
+}
+
+// newCloudEvents returns a cloudevents instance
+func newCloudEvents(config CloudEventsConfiguration) *CloudEvents {
 	// Possibly override default field values for cloudevents
 	ceFields := LogFields{}
 	defaultCfg := DefaultCloudEventsCfg()
@@ -64,27 +84,31 @@ func ceGetFields(config CloudEventsConfiguration) LogFields {
 	} else {
 		ceFields[ceTypeKey] = config.Type
 	}
-	return ceFields
-}
-
-func incrementalID() func() string {
-	i := 0
-	return func() string {
-		i++
-		return fmt.Sprintf("%d", i)
+	cloudEvents := CloudEvents{
+		fields: ceFields,
 	}
+
+	switch config.SetID {
+	case ceIncrID:
+		cloudEvents.genIncrementalID = incrementalID()
+	case ceHMAC:
+		key := []byte(config.HmacKey)
+		cloudEvents.hmacHash = hmac.New(sha256.New, key)
+	}
+	return &cloudEvents
 }
 
-// KafkaProducer adds the cloudevents id field to the message
-func (kp *KafkaProducer) ceAddFields(config CloudEventsConfiguration,
+// ceAddFields adds the cloudevents id field to the message
+func (ce *CloudEvents) ceAddFields(config CloudEventsConfiguration,
 	msgMap map[string]interface{}) error {
 	// Other cloudevents fields could be added here based on config
+
 	switch config.SetID {
 	case ceFuncID:
 		// set by FilterFn or WithFields
 		break
 	case ceIncrID:
-		msgMap[string(ceIDKey)] = incrementalID()
+		msgMap[string(ceIDKey)] = ce.genIncrementalID()
 	case ceUUID:
 		id, err := uuid.NewV4() // RFC4112
 		if err != nil {
@@ -94,10 +118,11 @@ func (kp *KafkaProducer) ceAddFields(config CloudEventsConfiguration,
 	case ceHMAC:
 		fallthrough
 	default:
-		key := []byte("pavedroad-secret")
-		h := hmac.New(sha256.New, key)
-		h.Write([]byte(msgMap[string(ceDataKey)].(string)))
-		id := base64.StdEncoding.EncodeToString(h.Sum(nil))
+		// key := []byte("pavedroad-secret")
+		// h := hmac.New(sha256.New, key)
+		// h.Write([]byte(msgMap[string(ceDataKey)].(string)))
+		ce.hmacHash.Write([]byte(msgMap[string(ceDataKey)].(string)))
+		id := base64.StdEncoding.EncodeToString(ce.hmacHash.Sum(nil))
 		msgMap[string(ceIDKey)] = id
 	}
 	return nil

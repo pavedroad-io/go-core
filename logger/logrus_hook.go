@@ -14,18 +14,19 @@ import (
 // LogrusKafkaHook provides a kafka producer hook
 type LogrusKafkaHook struct {
 	kp        *KafkaProducer
+	ce        *CloudEvents
 	formatter logrus.Formatter
 	levels    []logrus.Level
 }
 
 // newLogrusKafkaHook returns a kafka producer hook instance
 func newLogrusKafkaHook(
-	kpcfg ProducerConfiguration,
-	cecfg CloudEventsConfiguration,
+	kpCfg ProducerConfiguration, cloudEvents *CloudEvents,
+	ceCfg CloudEventsConfiguration,
 	fmt logrus.Formatter) (*LogrusKafkaHook, error) {
 
 	// create an async producer
-	kafkaProducer, err := newKafkaProducer(kpcfg, cecfg)
+	kafkaProducer, err := newKafkaProducer(kpCfg, cloudEvents, ceCfg)
 	if err != nil {
 		return nil, err
 	}
@@ -33,6 +34,7 @@ func newLogrusKafkaHook(
 	// create the Kafka hook
 	return &LogrusKafkaHook{
 		kp:        kafkaProducer,
+		ce:        cloudEvents,
 		formatter: fmt,
 		levels:    logrus.AllLevels,
 	}, nil
