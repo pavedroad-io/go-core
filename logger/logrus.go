@@ -45,7 +45,7 @@ func (f *ceFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 }
 
 // getFormatter returns a logrus formatter
-func getFormatter(format FormatType, config Configuration,
+func getFormatter(format FormatType, config LoggerConfiguration,
 	fields LogFields) logrus.Formatter {
 
 	switch format {
@@ -91,14 +91,14 @@ func getFormatter(format FormatType, config Configuration,
 }
 
 // newLogrusLogger return a logrus logger instance
-func newLogrusLogger(config Configuration) (Logger, error) {
+func newLogrusLogger(config LoggerConfiguration) (Logger, error) {
 	var kafkaHook *LogrusKafkaHook
 	var cloudEvents *CloudEvents
 	var fields LogFields
 
 	logLevel := config.LogLevel
 	if logLevel == "" {
-		logLevel = defaultLogConfiguration.LogLevel
+		logLevel = defaultLoggerConfiguration.LogLevel
 	}
 	level, err := logrus.ParseLevel(string(logLevel))
 	if err != nil {
@@ -128,7 +128,7 @@ func newLogrusLogger(config Configuration) (Logger, error) {
 		} else {
 			fileLocation := config.FileLocation
 			if fileLocation == "" {
-				fileLocation = defaultLogConfiguration.FileLocation
+				fileLocation = defaultLoggerConfiguration.FileLocation
 			}
 			fwriter, err = os.OpenFile(fileLocation,
 				os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)

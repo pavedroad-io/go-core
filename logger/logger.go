@@ -46,8 +46,8 @@ const (
 	Stderr ConsoleType = "stderr"
 )
 
-// Configuration stores the config for the logger
-type Configuration struct {
+// LoggerConfiguration stores the config for the logger
+type LoggerConfiguration struct {
 	LogPackage        PackageType
 	LogLevel          LevelType
 	EnableTimeStamps  bool
@@ -69,7 +69,7 @@ type Configuration struct {
 }
 
 // NewLogger returns a Logger instance
-func NewLogger(config Configuration) (Logger, error) {
+func NewLogger(config LoggerConfiguration) (Logger, error) {
 	err := checkConfig(config)
 	if err != nil {
 		return nil, err

@@ -45,7 +45,7 @@ const (
 // logger global for go log pkg emulation
 var logger Logger
 
-var defaultLogConfiguration = Configuration{
+var defaultLoggerConfiguration = LoggerConfiguration{
 	LogPackage:        ZapType,
 	LogLevel:          InfoType,
 	EnableTimeStamps:  true,
@@ -97,9 +97,9 @@ var defaultRotationConfiguration = RotationConfiguration{
 	Compress:   false,
 }
 
-// DefaultLogCfg returns default log configuration
-func DefaultLogCfg() Configuration {
-	return defaultLogConfiguration
+// DefaultLoggerCfg returns default log configuration
+func DefaultLoggerCfg() LoggerConfiguration {
+	return defaultLoggerConfiguration
 }
 
 // DefaultProducerCfg returns default kafka configuration
@@ -126,8 +126,8 @@ func init() {
 		defaultProducerConfiguration.KeyName = user.Username
 	}
 
-	config := new(Configuration)
-	err = EnvConfigure(DefaultLogCfg(), config, os.Getenv(LogAutoCfgEnvName),
+	config := new(LoggerConfiguration)
+	err = EnvConfigure(DefaultLoggerCfg(), config, os.Getenv(LogAutoCfgEnvName),
 		LogFileName, LogEnvPrefix)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Could not create logger configuration: %s\n",
@@ -222,7 +222,7 @@ func EnvConfigure(defaultCfg interface{}, config interface{}, auto string,
 	return nil
 }
 
-func checkConfig(config Configuration) error {
+func checkConfig(config LoggerConfiguration) error {
 	var errCount int
 
 	checkLoggerConfig(config, &errCount)
@@ -243,7 +243,7 @@ func checkConfig(config Configuration) error {
 	return nil
 }
 
-func checkLoggerConfig(lc Configuration, errCount *int) {
+func checkLoggerConfig(lc LoggerConfiguration, errCount *int) {
 	checkLoggerTypes(lc, errCount)
 
 	if (lc.ConsoleFormat == CEFormat || lc.FileFormat == CEFormat ||
@@ -296,7 +296,7 @@ func checkRotationConfig(rc RotationConfiguration, errCount *int) {
 	}
 }
 
-func checkLoggerTypes(lc Configuration, errCount *int) {
+func checkLoggerTypes(lc LoggerConfiguration, errCount *int) {
 	switch lc.LogPackage {
 	case ZapType:
 	case LogrusType:

@@ -50,7 +50,7 @@ func (e *ceEncoder) EncodeEntry(ent zapcore.Entry,
 }
 
 // getEncoder returns a zap encoder
-func getEncoder(format FormatType, config Configuration,
+func getEncoder(format FormatType, config LoggerConfiguration,
 	fields LogFields) zapcore.Encoder {
 
 	encoderConfig := zap.NewProductionEncoderConfig()
@@ -116,7 +116,7 @@ func zapDebugHook(entry zapcore.Entry) error {
 }
 
 // newZapLogger returns a zap logger instance
-func newZapLogger(config Configuration) (Logger, error) {
+func newZapLogger(config LoggerConfiguration) (Logger, error) {
 	var kafkaWriter *ZapKafkaWriter
 	var cloudEvents *CloudEvents
 	var fields LogFields
@@ -168,7 +168,7 @@ func newZapLogger(config Configuration) (Logger, error) {
 		} else {
 			fileLocation := config.FileLocation
 			if fileLocation == "" {
-				fileLocation = defaultLogConfiguration.FileLocation
+				fileLocation = defaultLoggerConfiguration.FileLocation
 			}
 			fwriter, err = os.OpenFile(fileLocation,
 				os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
