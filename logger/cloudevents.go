@@ -67,7 +67,6 @@ func incrementalID() func() string {
 func newCloudEvents(cfg CloudEventsConfiguration) *CloudEvents {
 	// Possibly override default field values for cloudevents
 	config := DefaultCloudEventsCfg()
-	fields := LogFields{}
 
 	// cloudevents fields must contain non-empty strings
 	config.SetID = cfg.SetID
@@ -85,6 +84,7 @@ func newCloudEvents(cfg CloudEventsConfiguration) *CloudEvents {
 	}
 	config.SetSubjectLevel = cfg.SetSubjectLevel
 
+	fields := LogFields{}
 	fields[CESourceKey] = config.Source
 	fields[CESpecVersionKey] = config.SpecVersion
 	fields[CETypeKey] = config.Type
@@ -98,6 +98,8 @@ func newCloudEvents(cfg CloudEventsConfiguration) *CloudEvents {
 	case CEIncrID:
 		cloudEvents.genIncrementalID = incrementalID()
 	case CEHMAC:
+		fallthrough
+	default:
 		key := []byte(config.HMACKey)
 		cloudEvents.hmacHash = hmac.New(sha256.New, key)
 	}

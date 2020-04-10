@@ -21,8 +21,7 @@ func rotationLogger(config RotationConfiguration) io.Writer {
 	// use default filename if empty string
 	filename := config.Filename
 	if filename == "" {
-		defCfg := DefaultRotationCfg()
-		filename = defCfg.Filename
+		filename = defaultRotationConfiguration.Filename
 	}
 
 	return &lumberjack.Logger{

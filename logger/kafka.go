@@ -109,8 +109,10 @@ func newKafkaProducer(config ProducerConfiguration, cloudEvents *CloudEvents,
 	}
 
 	cfg := sarama.NewConfig()
+	// TODO Consider reading Errors or Successes channels with goroutines
 	cfg.Producer.Return.Errors = false
 	cfg.Producer.Return.Successes = false
+
 	cfg.Producer.Flush.Frequency = config.ProdFlushFreq
 	cfg.Producer.Retry.Max = config.ProdRetryMax
 	cfg.Producer.Retry.Backoff = config.ProdRetryFreq
@@ -176,15 +178,14 @@ func newKafkaProducer(config ProducerConfiguration, cloudEvents *CloudEvents,
 		levelKey:    levelKey,
 	}
 
-	defCfg := DefaultKafkaCfg()
 	if len(config.Brokers) == 0 || config.Brokers[0] == "" {
-		kp.config.Brokers = defCfg.Brokers
+		kp.config.Brokers = defaultProducerConfiguration.Brokers
 	}
 	if config.Topic == "" {
-		kp.config.Topic = defCfg.Topic
+		kp.config.Topic = defaultProducerConfiguration.Topic
 	}
 	if config.Key == FixedKey && config.KeyName == "" {
-		kp.config.KeyName = defCfg.KeyName
+		kp.config.KeyName = defaultProducerConfiguration.KeyName
 	}
 
 	producer, err := sarama.NewAsyncProducer(kp.config.Brokers, cfg)

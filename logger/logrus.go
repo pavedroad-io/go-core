@@ -96,7 +96,11 @@ func newLogrusLogger(config Configuration) (Logger, error) {
 	var cloudEvents *CloudEvents
 	var fields LogFields
 
-	level, err := logrus.ParseLevel(string(config.LogLevel))
+	logLevel := config.LogLevel
+	if logLevel == "" {
+		logLevel = defaultLogConfiguration.LogLevel
+	}
+	level, err := logrus.ParseLevel(string(logLevel))
 	if err != nil {
 		return nil, err
 	}
@@ -124,8 +128,7 @@ func newLogrusLogger(config Configuration) (Logger, error) {
 		} else {
 			fileLocation := config.FileLocation
 			if fileLocation == "" {
-				defCfg := DefaultLogCfg()
-				fileLocation = defCfg.FileLocation
+				fileLocation = defaultLogConfiguration.FileLocation
 			}
 			fwriter, err = os.OpenFile(fileLocation,
 				os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)

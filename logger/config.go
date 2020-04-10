@@ -5,9 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strings"
-
 	"os/user"
+	"strings"
 
 	"github.com/spf13/viper"
 )
@@ -46,80 +45,87 @@ const (
 // logger global for go log pkg emulation
 var logger Logger
 
-// DefaultLogCfg returns default log configuration
-func DefaultLogCfg() Configuration {
-	return Configuration{
-		LogPackage:        LogrusType,
-		LogLevel:          InfoType,
-		EnableTimeStamps:  true,
-		EnableColorLevels: true,
-		EnableCloudEvents: true,
-		EnableKafka:       false,
-		KafkaFormat:       CEFormat,
-		EnableConsole:     false,
-		ConsoleFormat:     TextFormat,
-		ConsoleWriter:     Stdout,
-		EnableFile:        true,
-		FileFormat:        JSONFormat,
-		FileLocation:      "pavedroad.log",
-		EnableRotation:    false,
-		EnableDebug:       true,
-	}
+var defaultLogConfiguration = Configuration{
+	LogPackage:        ZapType,
+	LogLevel:          InfoType,
+	EnableTimeStamps:  true,
+	EnableColorLevels: true,
+	EnableCloudEvents: true,
+	EnableKafka:       false,
+	KafkaFormat:       CEFormat,
+	EnableConsole:     false,
+	ConsoleFormat:     TextFormat,
+	ConsoleWriter:     Stdout,
+	EnableFile:        true,
+	FileFormat:        JSONFormat,
+	FileLocation:      "pavedroad.log",
+	EnableRotation:    false,
+	EnableDebug:       true,
 }
 
-// DefaultKafkaCfg returns default kafka configuration
-func DefaultKafkaCfg() ProducerConfiguration {
-	var username string
-	user, err := user.Current()
-	if err != nil {
-		username = "username"
-	} else {
-		username = user.Username
-	}
-	return ProducerConfiguration{
-		Brokers:       []string{"localhost:9092"},
-		Topic:         "logs",
-		Partition:     RandomPartition,
-		Key:           FixedKey,
-		KeyName:       username,
-		Compression:   CompressionSnappy,
-		AckWait:       WaitForLocal,
-		ProdFlushFreq: 500, // milliseconds
-		ProdRetryMax:  10,
-		ProdRetryFreq: 100, // milliseconds
-		MetaRetryMax:  10,
-		MetaRetryFreq: 2000, // milliseconds
-		EnableTLS:     false,
-		EnableDebug:   false,
-	}
+var defaultProducerConfiguration = ProducerConfiguration{
+	Brokers:       []string{"localhost:9092"},
+	Topic:         "logs",
+	Partition:     RandomPartition,
+	Key:           FixedKey,
+	KeyName:       "username",
+	Compression:   CompressionSnappy,
+	AckWait:       WaitForLocal,
+	ProdFlushFreq: 500, // milliseconds
+	ProdRetryMax:  10,
+	ProdRetryFreq: 100, // milliseconds
+	MetaRetryMax:  10,
+	MetaRetryFreq: 2000, // milliseconds
+	EnableTLS:     false,
+	EnableDebug:   false,
+}
+
+var defaultCloudEventsConfiguration = CloudEventsConfiguration{
+	SetID:           CEHMAC,
+	Source:          "http://github.com/pavedroad-io/go-core/logger",
+	SpecVersion:     "1.0",
+	Type:            "io.pavedroad.cloudevents.log",
+	SetSubjectLevel: true,
+}
+
+var defaultRotationConfiguration = RotationConfiguration{
+	Filename:   "pavedroad.log",
+	MaxSize:    100, // megabytes
+	MaxAge:     0,   // days, 0 = no expiration
+	MaxBackups: 0,   // keep all
+	LocalTime:  false,
+	Compress:   false,
+}
+
+// DefaultLogCfg returns default log configuration
+func DefaultLogCfg() Configuration {
+	return defaultLogConfiguration
+}
+
+// DefaultProducerCfg returns default kafka configuration
+func DefaultProducerCfg() ProducerConfiguration {
+	return defaultProducerConfiguration
 }
 
 // DefaultCloudEventsCfg returns default cloudevents configuration
 func DefaultCloudEventsCfg() CloudEventsConfiguration {
-	return CloudEventsConfiguration{
-		SetID:           CEHMAC,
-		Source:          "http://github.com/pavedroad-io/go-core/logger",
-		SpecVersion:     "1.0",
-		Type:            "io.pavedroad.cloudevents.log",
-		SetSubjectLevel: true,
-	}
+	return defaultCloudEventsConfiguration
 }
 
 // DefaultRotationCfg returns default cloudevents configuration
 func DefaultRotationCfg() RotationConfiguration {
-	return RotationConfiguration{
-		Filename:   "pavedroad.log",
-		MaxSize:    100, // megabytes
-		MaxAge:     0,   // days, 0 = no expiration
-		MaxBackups: 0,   // keep all
-		LocalTime:  false,
-		Compress:   false,
-	}
+	return defaultRotationConfiguration
 }
 
 // init called on package import to configure logger via environment
 func init() {
 	var err error
+
+	user, err := user.Current()
+	if err == nil {
+		defaultProducerConfiguration.KeyName = user.Username
+	}
+
 	config := new(Configuration)
 	err = EnvConfigure(DefaultLogCfg(), config, os.Getenv(LogAutoCfgEnvName),
 		LogFileName, LogEnvPrefix)
@@ -130,7 +136,7 @@ func init() {
 	}
 
 	kafkaConfig := new(ProducerConfiguration)
-	err = EnvConfigure(DefaultKafkaCfg(), kafkaConfig,
+	err = EnvConfigure(DefaultProducerCfg(), kafkaConfig,
 		os.Getenv(KafkaAutoCfgEnvName), KafkaFileName, KafkaEnvPrefix)
 	if err == nil {
 		config.KafkaProducerCfg = *kafkaConfig
@@ -222,7 +228,7 @@ func checkConfig(config Configuration) error {
 	checkLoggerConfig(config, &errCount)
 
 	if config.EnableKafka {
-		checkKafkaConfig(config.KafkaProducerCfg, &errCount)
+		checkProducerConfig(config.KafkaProducerCfg, &errCount)
 		if config.EnableCloudEvents {
 			checkCETypes(config.CloudEventsCfg, &errCount)
 		}
@@ -247,29 +253,29 @@ func checkLoggerConfig(lc Configuration, errCount *int) {
 	}
 }
 
-func checkKafkaConfig(kc ProducerConfiguration, errCount *int) {
-	checkKafkaTypes(kc, errCount)
-	if kc.EnableTLS && kc.TLSCfg == nil {
+func checkProducerConfig(pc ProducerConfiguration, errCount *int) {
+	checkProducerTypes(pc, errCount)
+	if pc.EnableTLS && pc.TLSCfg == nil {
 		fmt.Fprintf(os.Stderr, "Producer missing TLS config\n")
 		*errCount++
 	}
-	if kc.ProdFlushFreq < 0 {
+	if pc.ProdFlushFreq < 0 {
 		fmt.Fprintf(os.Stderr, "Producer ProdFlushFreq less than zero\n")
 		*errCount++
 	}
-	if kc.ProdRetryMax < 0 {
+	if pc.ProdRetryMax < 0 {
 		fmt.Fprintf(os.Stderr, "Producer ProdRetryMax less than zero\n")
 		*errCount++
 	}
-	if kc.ProdRetryFreq < 0 {
+	if pc.ProdRetryFreq < 0 {
 		fmt.Fprintf(os.Stderr, "Producer ProdRetryFreq less than zero\n")
 		*errCount++
 	}
-	if kc.MetaRetryMax < 0 {
+	if pc.MetaRetryMax < 0 {
 		fmt.Fprintf(os.Stderr, "Producer MetaRetryMax less than zero\n")
 		*errCount++
 	}
-	if kc.MetaRetryFreq < 0 {
+	if pc.MetaRetryFreq < 0 {
 		fmt.Fprintf(os.Stderr, "Producer MetaRetryFreq less than zero\n")
 		*errCount++
 	}
@@ -294,6 +300,7 @@ func checkLoggerTypes(lc Configuration, errCount *int) {
 	switch lc.LogPackage {
 	case ZapType:
 	case LogrusType:
+	case "":
 	default:
 		fmt.Fprintf(os.Stderr, "Invalid LogPackage type: %s\n", lc.LogPackage)
 		*errCount++
@@ -306,6 +313,7 @@ func checkLoggerTypes(lc Configuration, errCount *int) {
 	case ErrorType:
 	case FatalType:
 	case PanicType:
+	case "":
 	default:
 		fmt.Fprintf(os.Stderr, "Invalid LogLevel type: %s\n", lc.LogLevel)
 		*errCount++
@@ -314,6 +322,7 @@ func checkLoggerTypes(lc Configuration, errCount *int) {
 	switch lc.ConsoleFormat {
 	case JSONFormat:
 	case TextFormat:
+	case "":
 	case CEFormat:
 		fallthrough
 	default:
@@ -336,6 +345,7 @@ func checkLoggerTypes(lc Configuration, errCount *int) {
 	case JSONFormat:
 	case TextFormat:
 	case CEFormat:
+	case "":
 	default:
 		fmt.Fprintf(os.Stderr, "Invalid KafkaFormat type: %s\n", lc.KafkaFormat)
 		*errCount++
@@ -344,6 +354,7 @@ func checkLoggerTypes(lc Configuration, errCount *int) {
 	switch lc.FileFormat {
 	case JSONFormat:
 	case TextFormat:
+	case "":
 	case CEFormat:
 		fallthrough
 	default:
@@ -358,51 +369,56 @@ func checkCETypes(cc CloudEventsConfiguration, errCount *int) {
 	case CEUUID:
 	case CEIncrID:
 	case CEFuncID:
+	case "":
 	default:
 		fmt.Fprintf(os.Stderr, "Invalid SetID type: %s\n", cc.SetID)
 		*errCount++
 	}
 }
 
-func checkKafkaTypes(kc ProducerConfiguration, errCount *int) {
-	switch kc.Partition {
+func checkProducerTypes(pc ProducerConfiguration, errCount *int) {
+	switch pc.Partition {
 	case RandomPartition:
 	case HashPartition:
 	case RoundRobinPartition:
+	case "":
 	default:
-		fmt.Fprintf(os.Stderr, "Invalid Partition type: %s\n", kc.Partition)
+		fmt.Fprintf(os.Stderr, "Invalid Partition type: %s\n", pc.Partition)
 		*errCount++
 	}
 
-	switch kc.Key {
+	switch pc.Key {
 	case LevelKey:
 	case TimeSecondKey:
 	case TimeNanoSecondKey:
 	case FixedKey:
 	case ExtractedKey:
 	case FunctionKey:
+	case "":
 	default:
-		fmt.Fprintf(os.Stderr, "Invalid Key type: %s\n", kc.Key)
+		fmt.Fprintf(os.Stderr, "Invalid Key type: %s\n", pc.Key)
 		*errCount++
 	}
 
-	switch kc.Compression {
+	switch pc.Compression {
 	case CompressionNone:
 	case CompressionGZIP:
 	case CompressionSnappy:
 	case CompressionLZ4:
 	case CompressionZSTD:
+	case "":
 	default:
-		fmt.Fprintf(os.Stderr, "Invalid Compression type: %s\n", kc.Compression)
+		fmt.Fprintf(os.Stderr, "Invalid Compression type: %s\n", pc.Compression)
 		*errCount++
 	}
 
-	switch kc.AckWait {
+	switch pc.AckWait {
 	case WaitForNone:
 	case WaitForLocal:
 	case WaitForAll:
+	case "":
 	default:
-		fmt.Fprintf(os.Stderr, "Invalid AckWait type: %s\n", kc.AckWait)
+		fmt.Fprintf(os.Stderr, "Invalid AckWait type: %s\n", pc.AckWait)
 		*errCount++
 	}
 }

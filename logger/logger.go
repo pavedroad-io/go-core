@@ -2,10 +2,6 @@
 
 package logger
 
-import (
-	"errors"
-)
-
 // LogFields provided for calls to WithFields for structured logging
 type LogFields map[string]interface{}
 
@@ -79,12 +75,12 @@ func NewLogger(config Configuration) (Logger, error) {
 		return nil, err
 	}
 	switch config.LogPackage {
-	case ZapType:
-		return newZapLogger(config)
 	case LogrusType:
 		return newLogrusLogger(config)
+	case ZapType:
+		fallthrough
 	default:
-		return nil, errors.New("Invalid log type")
+		return newZapLogger(config)
 	}
 }
 
