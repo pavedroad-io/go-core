@@ -56,7 +56,7 @@ func getEncoder(format FormatType, config Configuration,
 	encoderConfig := zap.NewProductionEncoderConfig()
 	if config.EnableTimeStamps {
 		encoderConfig.EncodeTime = zapcore.RFC3339TimeEncoder
-		encoderConfig.TimeKey = ceTimeKey
+		encoderConfig.TimeKey = CETimeKey
 	} else {
 		encoderConfig.TimeKey = zapcore.OmitKey
 	}
@@ -70,9 +70,9 @@ func getEncoder(format FormatType, config Configuration,
 	case CEFormat:
 		// Change keys for cloudevents
 		if config.EnableCloudEvents {
-			encoderConfig.MessageKey = ceDataKey
+			encoderConfig.MessageKey = CEDataKey
 			if config.CloudEventsCfg.SetSubjectLevel {
-				encoderConfig.LevelKey = ceSubjectKey
+				encoderConfig.LevelKey = CESubjectKey
 			}
 		}
 		return &ceEncoder{
@@ -166,7 +166,12 @@ func newZapLogger(config Configuration) (Logger, error) {
 		if config.EnableRotation {
 			fwriter = rotationLogger(config.RotationCfg)
 		} else {
-			fwriter, err = os.OpenFile(config.FileLocation,
+			fileLocation := config.FileLocation
+			if fileLocation == "" {
+				defCfg := DefaultLogCfg()
+				fileLocation = defCfg.FileLocation
+			}
+			fwriter, err = os.OpenFile(fileLocation,
 				os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 			if err != nil {
 				return nil, err
@@ -287,12 +292,12 @@ func (l *zapLogger) WithFields(fields LogFields) Logger {
 
 // WithKafkaFilterFn adds a filter function for each kafka record
 func (l *zapLogger) WithKafkaFilterFn(filterFn FilterFunc) Logger {
-	l.kafkaWriter.kp.kpConfig.filterFn = filterFn
+	l.kafkaWriter.kp.config.filterFn = filterFn
 	return l
 }
 
 // WithKafkaKeyFn adds a key function for each kafka record
 func (l *zapLogger) WithKafkaKeyFn(keyFn KeyFunc) Logger {
-	l.kafkaWriter.kp.kpConfig.keyFn = keyFn
+	l.kafkaWriter.kp.config.keyFn = keyFn
 	return l
 }

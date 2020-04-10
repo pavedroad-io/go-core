@@ -58,10 +58,10 @@ func getFormatter(format FormatType, config Configuration,
 		// Change keys for cloudevents
 		fieldmap := logrus.FieldMap{}
 		if config.EnableCloudEvents {
-			fieldmap[logrus.FieldKeyMsg] = ceDataKey
-			fieldmap[logrus.FieldKeyTime] = ceTimeKey
+			fieldmap[logrus.FieldKeyMsg] = CEDataKey
+			fieldmap[logrus.FieldKeyTime] = CETimeKey
 			if config.CloudEventsCfg.SetSubjectLevel {
-				fieldmap[logrus.FieldKeyLevel] = ceSubjectKey
+				fieldmap[logrus.FieldKeyLevel] = CESubjectKey
 			}
 		}
 		return &ceFormatter{
@@ -122,7 +122,12 @@ func newLogrusLogger(config Configuration) (Logger, error) {
 		if config.EnableRotation {
 			fwriter = rotationLogger(config.RotationCfg)
 		} else {
-			fwriter, err = os.OpenFile(config.FileLocation,
+			fileLocation := config.FileLocation
+			if fileLocation == "" {
+				defCfg := DefaultLogCfg()
+				fileLocation = defCfg.FileLocation
+			}
+			fwriter, err = os.OpenFile(fileLocation,
 				os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 			if err != nil {
 				return nil, err
@@ -267,13 +272,13 @@ func (l *logrusLogger) WithFields(fields LogFields) Logger {
 
 // WithKafkaFilterFn adds a filter function for each kafka record
 func (l *logrusLogger) WithKafkaFilterFn(filterFn FilterFunc) Logger {
-	l.kafkaHook.kp.kpConfig.filterFn = filterFn
+	l.kafkaHook.kp.config.filterFn = filterFn
 	return l
 }
 
 // WithKafkaKeyFn adds a key function for each kafka record
 func (l *logrusLogger) WithKafkaKeyFn(keyFn KeyFunc) Logger {
-	l.kafkaHook.kp.kpConfig.keyFn = keyFn
+	l.kafkaHook.kp.config.keyFn = keyFn
 	return l
 }
 
@@ -370,13 +375,13 @@ func (l *logrusLogEntry) WithFields(fields LogFields) Logger {
 
 // WithKafkaFilterFn adds a filter function for each kafka record
 func (l *logrusLogEntry) WithKafkaFilterFn(filterFn FilterFunc) Logger {
-	l.kafkaHook.kp.kpConfig.filterFn = filterFn
+	l.kafkaHook.kp.config.filterFn = filterFn
 	return l
 }
 
 // WithKafkaKeyFn adds a key function for each kafka record
 func (l *logrusLogEntry) WithKafkaKeyFn(keyFn KeyFunc) Logger {
-	l.kafkaHook.kp.kpConfig.keyFn = keyFn
+	l.kafkaHook.kp.config.keyFn = keyFn
 	return l
 }
 

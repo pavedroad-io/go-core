@@ -29,7 +29,7 @@ const (
 // kafkaKeyType provides kafka key type
 type kafkaKeyType string
 
-// Types of kafka keys to map to sarama
+// Types of kafka keys to generate
 const (
 	LevelKey          kafkaKeyType = "level" // default
 	TimeSecondKey     kafkaKeyType = "second"
@@ -87,7 +87,6 @@ type ProducerConfiguration struct {
 	EnableTLS     bool
 	TLSCfg        *tls.Config
 	EnableDebug   bool
-	enableFilter  bool
 	filterFn      FilterFunc
 	keyFn         KeyFunc
 }
@@ -95,41 +94,30 @@ type ProducerConfiguration struct {
 // KafkaProducer wraps sarama producer with config
 type KafkaProducer struct {
 	producer    sarama.AsyncProducer
-	kpConfig    ProducerConfiguration
+	config      ProducerConfiguration
 	cloudEvents *CloudEvents
-	ceConfig    CloudEventsConfiguration
+	enableCE    bool
+	levelKey    string
 }
 
 // newKafkaProducer returns a kafka producer instance
-func newKafkaProducer(kpConfig ProducerConfiguration, cloudEvents *CloudEvents,
+func newKafkaProducer(config ProducerConfiguration, cloudEvents *CloudEvents,
 	ceConfig CloudEventsConfiguration) (*KafkaProducer, error) {
 
-	if kpConfig.EnableDebug {
+	if config.EnableDebug {
 		sarama.Logger = stdlog.New(os.Stdout, "[sarama] ", stdlog.LstdFlags)
 	}
+
 	cfg := sarama.NewConfig()
-	// TODO Consider reading the following two channels with goroutines
 	cfg.Producer.Return.Errors = false
 	cfg.Producer.Return.Successes = false
+	cfg.Producer.Flush.Frequency = config.ProdFlushFreq
+	cfg.Producer.Retry.Max = config.ProdRetryMax
+	cfg.Producer.Retry.Backoff = config.ProdRetryFreq
+	cfg.Metadata.Retry.Max = config.MetaRetryMax
+	cfg.Metadata.Retry.Backoff = config.MetaRetryFreq
 
-	// Set producer values if config values are not zero
-	if kpConfig.ProdFlushFreq != 0 {
-		cfg.Producer.Flush.Frequency = kpConfig.ProdFlushFreq
-	}
-	if kpConfig.ProdRetryMax != 0 {
-		cfg.Producer.Retry.Max = kpConfig.ProdRetryMax
-	}
-	if kpConfig.ProdRetryFreq != 0 {
-		cfg.Producer.Retry.Backoff = kpConfig.ProdRetryFreq
-	}
-	if kpConfig.MetaRetryMax != 0 {
-		cfg.Metadata.Retry.Max = kpConfig.MetaRetryMax
-	}
-	if kpConfig.MetaRetryFreq != 0 {
-		cfg.Metadata.Retry.Backoff = kpConfig.MetaRetryFreq
-	}
-
-	switch kpConfig.Partition {
+	switch config.Partition {
 	case HashPartition:
 		cfg.Producer.Partitioner = sarama.NewHashPartitioner
 	case RoundRobinPartition:
@@ -140,7 +128,7 @@ func newKafkaProducer(kpConfig ProducerConfiguration, cloudEvents *CloudEvents,
 		cfg.Producer.Partitioner = sarama.NewRandomPartitioner
 	}
 
-	switch kpConfig.Compression {
+	switch config.Compression {
 	case CompressionGZIP:
 		cfg.Producer.Compression = sarama.CompressionGZIP
 	case CompressionSnappy:
@@ -155,7 +143,7 @@ func newKafkaProducer(kpConfig ProducerConfiguration, cloudEvents *CloudEvents,
 		cfg.Producer.Compression = sarama.CompressionNone
 	}
 
-	switch kpConfig.AckWait {
+	switch config.AckWait {
 	case WaitForNone:
 		cfg.Producer.RequiredAcks = sarama.NoResponse
 	case WaitForAll:
@@ -166,32 +154,88 @@ func newKafkaProducer(kpConfig ProducerConfiguration, cloudEvents *CloudEvents,
 		cfg.Producer.RequiredAcks = sarama.WaitForLocal
 	}
 
-	if kpConfig.EnableTLS {
+	if config.EnableTLS {
 		cfg.Net.TLS.Enable = true
-		cfg.Net.TLS.Config = kpConfig.TLSCfg
+		cfg.Net.TLS.Config = config.TLSCfg
 	}
 
-	producer, err := sarama.NewAsyncProducer(kpConfig.Brokers, cfg)
+	var enableCE bool = false
+	var levelKey string = "level"
+	if cloudEvents != nil {
+		enableCE = true
+		if ceConfig.SetSubjectLevel {
+			levelKey = CESubjectKey
+		}
+	}
+
+	kp := KafkaProducer{
+		// producer:    producer,
+		config:      config,
+		cloudEvents: cloudEvents,
+		enableCE:    enableCE,
+		levelKey:    levelKey,
+	}
+
+	defCfg := DefaultKafkaCfg()
+	if len(config.Brokers) == 0 || config.Brokers[0] == "" {
+		kp.config.Brokers = defCfg.Brokers
+	}
+	if config.Topic == "" {
+		kp.config.Topic = defCfg.Topic
+	}
+	if config.Key == FixedKey && config.KeyName == "" {
+		kp.config.KeyName = defCfg.KeyName
+	}
+
+	producer, err := sarama.NewAsyncProducer(kp.config.Brokers, cfg)
 	if err != nil {
 		return &KafkaProducer{}, err
 	}
+	kp.producer = producer
 
-	return &KafkaProducer{
-		producer:    producer,
-		kpConfig:    kpConfig,
-		cloudEvents: cloudEvents,
-		ceConfig:    ceConfig,
-	}, nil
+	return &kp, nil
 }
 
 // setFilterFn sets the kafka message filter function
 func (kp *KafkaProducer) setFilterFn(filterFn FilterFunc) {
-	kp.kpConfig.filterFn = filterFn
+	kp.config.filterFn = filterFn
 }
 
 // setKeyFn sets the kafka message key function
 func (kp *KafkaProducer) setKeyFn(keyFn KeyFunc) {
-	kp.kpConfig.keyFn = keyFn
+	kp.config.keyFn = keyFn
+}
+
+func (kp *KafkaProducer) getKey(msgMap map[string]interface{},
+	key *sarama.Encoder) error {
+
+	// get key based on kp config
+	switch kp.config.Key {
+	case FixedKey:
+		*key = sarama.StringEncoder(kp.config.KeyName)
+	case ExtractedKey:
+		if name, ok := msgMap[kp.config.KeyName].(string); ok {
+			*key = sarama.StringEncoder(name)
+			delete(msgMap, kp.config.KeyName)
+		} else {
+			return errors.New("Extracted key missing")
+		}
+	case TimeSecondKey:
+		*key = sarama.StringEncoder(strconv.Itoa(int(time.Now().Unix())))
+	case TimeNanoSecondKey:
+		*key = sarama.StringEncoder(strconv.Itoa(int(time.Now().UnixNano())))
+	case FunctionKey:
+		if kp.config.keyFn != nil {
+			*key = sarama.StringEncoder(kp.config.keyFn(&msgMap))
+			break
+		}
+		fallthrough
+	case LevelKey:
+		fallthrough
+	default:
+		*key = sarama.StringEncoder(msgMap[kp.levelKey].(string))
+	}
+	return nil
 }
 
 // sendMessage adds key and cloudevents ID before sending message to kafka
@@ -203,56 +247,34 @@ func (kp *KafkaProducer) sendMessage(msg []byte) error {
 	if err != nil {
 		return err
 	}
-	// begin data manipulation in message map here
 
 	// capture topic if passed else use default
 	topic, ok := msgMap[TopicKey]
 	if ok {
 		delete(msgMap, TopicKey)
 	} else {
-		topic = kp.kpConfig.Topic
+		topic = kp.config.Topic
 	}
 
-	// add cloudevents fields like id
-	if kp.cloudEvents != nil {
-		err = kp.cloudEvents.ceAddFields(kp.ceConfig, msgMap)
-		if err != nil {
-			return err
-		}
+	// get kafka key, may delete key from map
+	var key sarama.Encoder
+	err = kp.getKey(msgMap, &key)
+	if err != nil {
+		return err
 	}
 
 	// filter function performs field manipulation
-	if kp.kpConfig.filterFn != nil {
-		kp.kpConfig.filterFn(&msgMap)
+	if kp.config.filterFn != nil {
+		kp.config.filterFn(&msgMap)
 	}
 
-	// end data manipulation in message map here
-	// set key based on kp config
-	var key sarama.Encoder
-	switch kp.kpConfig.Key {
-	case FixedKey:
-		key = sarama.StringEncoder(kp.kpConfig.KeyName)
-	case ExtractedKey:
-		if name, ok := msgMap[kp.kpConfig.KeyName].(string); ok {
-			key = sarama.StringEncoder(name)
-			delete(msgMap, kp.kpConfig.KeyName)
-		} else {
-			return errors.New("Extracted key missing")
+	// add cloudevents fields like id (possibly dependent of message)
+	// thus must be after all message map manipulation before re-marshal
+	if kp.enableCE {
+		err = kp.cloudEvents.ceAddFields(msgMap)
+		if err != nil {
+			return err
 		}
-	case TimeSecondKey:
-		key = sarama.StringEncoder(strconv.Itoa(int(time.Now().Unix())))
-	case TimeNanoSecondKey:
-		key = sarama.StringEncoder(strconv.Itoa(int(time.Now().UnixNano())))
-	case FunctionKey:
-		if kp.kpConfig.keyFn != nil {
-			key = sarama.StringEncoder(kp.kpConfig.keyFn(&msgMap))
-			break
-		}
-		fallthrough
-	case LevelKey:
-		fallthrough
-	default:
-		key = sarama.StringEncoder(msgMap[ceSubjectKey].(string))
 	}
 
 	// re-marshal message after field manipulation

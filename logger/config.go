@@ -2,6 +2,7 @@ package logger
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -96,7 +97,7 @@ func DefaultKafkaCfg() ProducerConfiguration {
 // DefaultCloudEventsCfg returns default cloudevents configuration
 func DefaultCloudEventsCfg() CloudEventsConfiguration {
 	return CloudEventsConfiguration{
-		SetID:           ceHMAC,
+		SetID:           CEHMAC,
 		Source:          "http://github.com/pavedroad-io/go-core/logger",
 		SpecVersion:     "1.0",
 		Type:            "io.pavedroad.cloudevents.log",
@@ -213,6 +214,197 @@ func EnvConfigure(defaultCfg interface{}, config interface{}, auto string,
 		return err
 	}
 	return nil
+}
+
+func checkConfig(config Configuration) error {
+	var errCount int
+
+	checkLoggerConfig(config, &errCount)
+
+	if config.EnableKafka {
+		checkKafkaConfig(config.KafkaProducerCfg, &errCount)
+		if config.EnableCloudEvents {
+			checkCETypes(config.CloudEventsCfg, &errCount)
+		}
+	}
+	if config.EnableRotation {
+		checkRotationConfig(config.RotationCfg, &errCount)
+	}
+
+	if errCount > 0 {
+		return errors.New("Invalid configuration")
+	}
+	return nil
+}
+
+func checkLoggerConfig(lc Configuration, errCount *int) {
+	checkLoggerTypes(lc, errCount)
+
+	if (lc.ConsoleFormat == CEFormat || lc.FileFormat == CEFormat ||
+		lc.KafkaFormat == CEFormat) && !lc.EnableCloudEvents {
+		fmt.Fprintf(os.Stderr, "CEFormat requires EnableCloudEvents\n")
+		*errCount++
+	}
+}
+
+func checkKafkaConfig(kc ProducerConfiguration, errCount *int) {
+	checkKafkaTypes(kc, errCount)
+	if kc.EnableTLS && kc.TLSCfg == nil {
+		fmt.Fprintf(os.Stderr, "Producer missing TLS config\n")
+		*errCount++
+	}
+	if kc.ProdFlushFreq < 0 {
+		fmt.Fprintf(os.Stderr, "Producer ProdFlushFreq less than zero\n")
+		*errCount++
+	}
+	if kc.ProdRetryMax < 0 {
+		fmt.Fprintf(os.Stderr, "Producer ProdRetryMax less than zero\n")
+		*errCount++
+	}
+	if kc.ProdRetryFreq < 0 {
+		fmt.Fprintf(os.Stderr, "Producer ProdRetryFreq less than zero\n")
+		*errCount++
+	}
+	if kc.MetaRetryMax < 0 {
+		fmt.Fprintf(os.Stderr, "Producer MetaRetryMax less than zero\n")
+		*errCount++
+	}
+	if kc.MetaRetryFreq < 0 {
+		fmt.Fprintf(os.Stderr, "Producer MetaRetryFreq less than zero\n")
+		*errCount++
+	}
+}
+
+func checkRotationConfig(rc RotationConfiguration, errCount *int) {
+	if rc.MaxSize < 0 {
+		fmt.Fprintf(os.Stderr, "Rotation MaxSize less than zero\n")
+		*errCount++
+	}
+	if rc.MaxAge < 0 {
+		fmt.Fprintf(os.Stderr, "Rotation MaxAge less than zero\n")
+		*errCount++
+	}
+	if rc.MaxBackups < 0 {
+		fmt.Fprintf(os.Stderr, "Rotation MaxBackups less than zero\n")
+		*errCount++
+	}
+}
+
+func checkLoggerTypes(lc Configuration, errCount *int) {
+	switch lc.LogPackage {
+	case ZapType:
+	case LogrusType:
+	default:
+		fmt.Fprintf(os.Stderr, "Invalid LogPackage type: %s\n", lc.LogPackage)
+		*errCount++
+	}
+
+	switch lc.LogLevel {
+	case DebugType:
+	case InfoType:
+	case WarnType:
+	case ErrorType:
+	case FatalType:
+	case PanicType:
+	default:
+		fmt.Fprintf(os.Stderr, "Invalid LogLevel type: %s\n", lc.LogLevel)
+		*errCount++
+	}
+
+	switch lc.ConsoleFormat {
+	case JSONFormat:
+	case TextFormat:
+	case CEFormat:
+		fallthrough
+	default:
+		fmt.Fprintf(os.Stderr, "Invalid ConsoleFormat type: %s\n",
+			lc.ConsoleFormat)
+		*errCount++
+	}
+
+	switch lc.ConsoleWriter {
+	case Stdout:
+	case Stderr:
+	case "":
+	default:
+		fmt.Fprintf(os.Stderr, "Invalid ConsoleWriter type: %s\n",
+			lc.ConsoleWriter)
+		*errCount++
+	}
+
+	switch lc.KafkaFormat {
+	case JSONFormat:
+	case TextFormat:
+	case CEFormat:
+	default:
+		fmt.Fprintf(os.Stderr, "Invalid KafkaFormat type: %s\n", lc.KafkaFormat)
+		*errCount++
+	}
+
+	switch lc.FileFormat {
+	case JSONFormat:
+	case TextFormat:
+	case CEFormat:
+		fallthrough
+	default:
+		fmt.Fprintf(os.Stderr, "Invalid FileFormat type: %s\n", lc.FileFormat)
+		*errCount++
+	}
+}
+
+func checkCETypes(cc CloudEventsConfiguration, errCount *int) {
+	switch cc.SetID {
+	case CEHMAC:
+	case CEUUID:
+	case CEIncrID:
+	case CEFuncID:
+	default:
+		fmt.Fprintf(os.Stderr, "Invalid SetID type: %s\n", cc.SetID)
+		*errCount++
+	}
+}
+
+func checkKafkaTypes(kc ProducerConfiguration, errCount *int) {
+	switch kc.Partition {
+	case RandomPartition:
+	case HashPartition:
+	case RoundRobinPartition:
+	default:
+		fmt.Fprintf(os.Stderr, "Invalid Partition type: %s\n", kc.Partition)
+		*errCount++
+	}
+
+	switch kc.Key {
+	case LevelKey:
+	case TimeSecondKey:
+	case TimeNanoSecondKey:
+	case FixedKey:
+	case ExtractedKey:
+	case FunctionKey:
+	default:
+		fmt.Fprintf(os.Stderr, "Invalid Key type: %s\n", kc.Key)
+		*errCount++
+	}
+
+	switch kc.Compression {
+	case CompressionNone:
+	case CompressionGZIP:
+	case CompressionSnappy:
+	case CompressionLZ4:
+	case CompressionZSTD:
+	default:
+		fmt.Fprintf(os.Stderr, "Invalid Compression type: %s\n", kc.Compression)
+		*errCount++
+	}
+
+	switch kc.AckWait {
+	case WaitForNone:
+	case WaitForLocal:
+	case WaitForAll:
+	default:
+		fmt.Fprintf(os.Stderr, "Invalid AckWait type: %s\n", kc.AckWait)
+		*errCount++
+	}
 }
 
 // Print emulates function from go log pkg

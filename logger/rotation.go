@@ -17,29 +17,20 @@ type RotationConfiguration struct {
 }
 
 func rotationLogger(config RotationConfiguration) io.Writer {
-	rotConfig := DefaultRotationCfg()
-	// override rotation defaults with config
-	if config.Filename != "" {
-		rotConfig.Filename = config.Filename
+
+	// use default filename if empty string
+	filename := config.Filename
+	if filename == "" {
+		defCfg := DefaultRotationCfg()
+		filename = defCfg.Filename
 	}
-	if config.MaxSize >= 0 {
-		rotConfig.MaxSize = config.MaxSize
-	}
-	if config.MaxAge >= 0 {
-		rotConfig.MaxAge = config.MaxAge
-	}
-	if config.MaxBackups >= 0 {
-		rotConfig.MaxBackups = config.MaxBackups
-	}
-	rotConfig.LocalTime = config.LocalTime
-	rotConfig.Compress = config.Compress
 
 	return &lumberjack.Logger{
-		Filename:   rotConfig.Filename,
-		MaxSize:    rotConfig.MaxSize,
-		MaxBackups: rotConfig.MaxBackups,
-		MaxAge:     rotConfig.MaxAge,
-		LocalTime:  rotConfig.LocalTime,
-		Compress:   rotConfig.Compress,
+		Filename:   filename,
+		MaxSize:    config.MaxSize,
+		MaxBackups: config.MaxBackups,
+		MaxAge:     config.MaxAge,
+		LocalTime:  config.LocalTime,
+		Compress:   config.Compress,
 	}
 }

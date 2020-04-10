@@ -74,6 +74,10 @@ type Configuration struct {
 
 // NewLogger returns a Logger instance
 func NewLogger(config Configuration) (Logger, error) {
+	err := checkConfig(config)
+	if err != nil {
+		return nil, err
+	}
 	switch config.LogPackage {
 	case ZapType:
 		return newZapLogger(config)
