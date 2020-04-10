@@ -1,4 +1,4 @@
-// Based on github.com/ORBAT/krater/unsafe_writer.go
+// Inspired by github.com/ORBAT/krater/unsafe_writer.go
 
 package logger
 
@@ -9,40 +9,42 @@ import (
 	"syscall"
 )
 
-// ZapWriter is an io.Writer that writes messages to Kafka, ignoring any responses
-// The AsyncProducer passed to newZapWriter must have:
-//    Config.Return.Successes == false
-//    Config.Return.Errors == false
-type ZapWriter struct {
+// ZapKafkaWriter is a zap WriteSyncer (io.Writer) that writes messages to Kafka
+type ZapKafkaWriter struct {
 	kp        *KafkaProducer
-	closed    int32          // Nonzero if closing started, must be accessed atomically
+	ce        *CloudEvents
+	closed    int32          // Nonzero if closing, must access atomically
 	pendingWg sync.WaitGroup // WaitGroup for pending messages
 	closeMut  sync.Mutex
 }
 
-// newZapWriter returns a kafka io.writer instance
-func newZapWriter(
-	kpcfg ProducerConfiguration,
-	cecfg CloudEventsConfiguration) (*ZapWriter, error) {
+// newZapKafkaWriter returns a kafka io.writer instance
+func newZapKafkaWriter(
+	kpCfg ProducerConfiguration, cloudEvents *CloudEvents,
+	ceCfg CloudEventsConfiguration) (*ZapKafkaWriter, error) {
 
 	// create an async producer
-	kp, err := newKafkaProducer(kpcfg, cecfg)
+	kp, err := newKafkaProducer(kpCfg, cloudEvents, ceCfg)
 	if err != nil {
 		return nil, err
 	}
 
-	zw := &ZapWriter{kp: kp}
+	zw := &ZapKafkaWriter{
+		kp: kp,
+		ce: cloudEvents,
+	}
 	return zw, nil
 }
 
-// Sync does nothing for now
-func (zw *ZapWriter) Sync() error {
+// Sync satisfies zapcore.WriteSyncer interface, zapcore.AddSync works as well
+func (zw *ZapKafkaWriter) Sync() error {
+	// TODO can writer be closed here?
 	return nil
 }
 
-// Write writes byte slices to Kafka ignoring error responses (Thread-safe)
-// Write might block if the Input() channel of the underlying AsyncProducer is full
-func (zw *ZapWriter) Write(msg []byte) (int, error) {
+// Write sends byte slices to Kafka ignoring error responses (Thread-safe)
+// Write might block if the Input() channel of the AsyncProducer is full
+func (zw *ZapKafkaWriter) Write(msg []byte) (int, error) {
 	if zw.Closed() {
 		return 0, syscall.EINVAL
 	}
@@ -58,13 +60,13 @@ func (zw *ZapWriter) Write(msg []byte) (int, error) {
 	return len(msg), err
 }
 
-// Closed returns true if ZapWriter is closed, false otherwise (Thread-safe)
-func (zw *ZapWriter) Closed() bool {
+// Closed returns true if the writer is closed, false otherwise (Thread-safe)
+func (zw *ZapKafkaWriter) Closed() bool {
 	return atomic.LoadInt32(&zw.closed) != 0
 }
 
 // Close must be called when the writer is no longer needed (Thread-safe)
-func (zw *ZapWriter) Close() (err error) {
+func (zw *ZapKafkaWriter) Close() (err error) {
 	zw.closeMut.Lock()
 	defer zw.closeMut.Unlock()
 

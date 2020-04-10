@@ -4,10 +4,12 @@ enabletimestamps: false
 enablecolorlevels: true
 enablecloudevents: true
 cloudeventscfg:
+  setid: hmac
+  hmackey: pavedroad
   source: http://github.com/pavedroad-io/core/go/logger
-  specversion: 1.0
+  specversion: "1.0"
   type: io.pavedroad.cloudevents.log
-  id: HMAC
+  setsubjectlevel: true
 enablekafka: false
 kafkaformat: cloudevents
 kafkaproducercfg:
@@ -17,19 +19,28 @@ kafkaproducercfg:
   partition: random
   key: fixed
   keyname: user
-  cloudeventsid: hmac
   compression: snappy
   ackwait: local
   prodflushfreq: 500ns
   prodretrymax: 10
   prodretryfreq: 100ns
   metaretrymax: 10
-  metaretryfreq: 2000ns
+  metaretryfreq: 1s
   enabletls: false
   tlscfg: null
   enabledebug: false
 enableconsole: true
 consoleformat: text
+consolewriter: ""
 enablefile: false
 fileformat: json
-filelocation: pavedroad.log
+filelocation: testdata/LogrusConsoleDefault.log
+enablerotation: false
+rotationcfg:
+  filename: ""
+  maxsize: 0
+  maxage: 0
+  maxbackups: 0
+  localtime: false
+  compress: false
+enabledebug: false

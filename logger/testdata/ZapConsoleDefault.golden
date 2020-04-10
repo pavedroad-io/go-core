@@ -1,6 +1,6 @@
-[34mINFO[0m	Infof using zap	{"source":"http://github.com/pavedroad-io/core/go/logger","specversion":"1.0","type":"io.pavedroad.cloudevents.log"}
-[33mWARN[0m	Warnf using zap	{"source":"http://github.com/pavedroad-io/core/go/logger","specversion":"1.0","type":"io.pavedroad.cloudevents.log"}
-[31mERROR[0m	Errorf using zap	{"source":"http://github.com/pavedroad-io/core/go/logger","specversion":"1.0","type":"io.pavedroad.cloudevents.log"}
-[34mINFO[0m	Print usingzap	{"source":"http://github.com/pavedroad-io/core/go/logger","specversion":"1.0","type":"io.pavedroad.cloudevents.log"}
-[34mINFO[0m	Printf using zap	{"source":"http://github.com/pavedroad-io/core/go/logger","specversion":"1.0","type":"io.pavedroad.cloudevents.log"}
-[34mINFO[0m	Println using zap	{"source":"http://github.com/pavedroad-io/core/go/logger","specversion":"1.0","type":"io.pavedroad.cloudevents.log"}
+[34mINFO[0m	Infof using zap
+[33mWARN[0m	Warnf using zap
+[31mERROR[0m	Errorf using zap
+[34mINFO[0m	Print usingzap
+[34mINFO[0m	Printf using zap
+[34mINFO[0m	Println using zap
