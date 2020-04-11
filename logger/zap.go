@@ -163,13 +163,13 @@ func newZapLogger(config LoggerConfiguration) (Logger, error) {
 
 	if config.EnableFile {
 		var fwriter io.Writer
+		fileLocation := config.FileLocation
+		if fileLocation == "" {
+			fileLocation = defaultLoggerConfiguration.FileLocation
+		}
 		if config.EnableRotation {
-			fwriter = rotationLogger(config.RotationCfg)
+			fwriter = rotationLogger(fileLocation, config.RotationCfg)
 		} else {
-			fileLocation := config.FileLocation
-			if fileLocation == "" {
-				fileLocation = defaultLoggerConfiguration.FileLocation
-			}
 			fwriter, err = os.OpenFile(fileLocation,
 				os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 			if err != nil {

@@ -37,7 +37,6 @@ fileformat: json
 filelocation: testdata/ZapConsoleDefault.log
 enablerotation: false
 rotationcfg:
-  filename: ""
   maxsize: 0
   maxage: 0
   maxbackups: 0

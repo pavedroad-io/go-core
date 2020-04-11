@@ -82,6 +82,7 @@ var defaultProducerConfiguration = ProducerConfiguration{
 
 var defaultCloudEventsConfiguration = CloudEventsConfiguration{
 	SetID:           CEHMAC,
+	HMACKey:         "pavedroad",
 	Source:          "http://github.com/pavedroad-io/go-core/logger",
 	SpecVersion:     "1.0",
 	Type:            "io.pavedroad.cloudevents.log",
@@ -89,7 +90,6 @@ var defaultCloudEventsConfiguration = CloudEventsConfiguration{
 }
 
 var defaultRotationConfiguration = RotationConfiguration{
-	Filename:   "pavedroad.log",
 	MaxSize:    100, // megabytes
 	MaxAge:     0,   // days, 0 = no expiration
 	MaxBackups: 0,   // keep all
@@ -115,6 +115,15 @@ func DefaultCloudEventsCfg() CloudEventsConfiguration {
 // DefaultRotationCfg returns default cloudevents configuration
 func DefaultRotationCfg() RotationConfiguration {
 	return defaultRotationConfiguration
+}
+
+// DefaultLoggerCfg returns default log configuration
+func DefaultCompleteCfg() LoggerConfiguration {
+	config := defaultLoggerConfiguration
+	config.CloudEventsCfg = defaultCloudEventsConfiguration
+	config.KafkaProducerCfg = defaultProducerConfiguration
+	config.RotationCfg = defaultRotationConfiguration
+	return config
 }
 
 // init called on package import to configure logger via environment

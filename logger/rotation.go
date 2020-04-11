@@ -8,7 +8,6 @@ import (
 
 // RotationConfiguration stores the config for log rotation
 type RotationConfiguration struct {
-	Filename   string
 	MaxSize    int
 	MaxAge     int
 	MaxBackups int
@@ -16,13 +15,7 @@ type RotationConfiguration struct {
 	Compress   bool
 }
 
-func rotationLogger(config RotationConfiguration) io.Writer {
-
-	// use default filename if empty string
-	filename := config.Filename
-	if filename == "" {
-		filename = defaultRotationConfiguration.Filename
-	}
+func rotationLogger(filename string, config RotationConfiguration) io.Writer {
 
 	return &lumberjack.Logger{
 		Filename:   filename,
