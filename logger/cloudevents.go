@@ -64,46 +64,41 @@ func incrementalID() func() string {
 }
 
 // newCloudEvents returns a cloudevents instance
-func newCloudEvents(cfg CloudEventsConfiguration) *CloudEvents {
-	// Possibly override default field values for cloudevents
-	config := DefaultCloudEventsCfg()
-
+func newCloudEvents(config CloudEventsConfiguration) *CloudEvents {
+	// use passed configuration and replace empty strings with defaults
+	ce := CloudEvents{
+		config: config,
+	}
 	// cloudevents fields must contain non-empty strings
-	config.SetID = cfg.SetID
-	if cfg.HMACKey != "" {
-		config.HMACKey = cfg.HMACKey
+	if config.HMACKey == "" {
+		ce.config.HMACKey = defaultCloudEventsConfiguration.HMACKey
 	}
-	if cfg.Source != "" {
-		config.Source = cfg.Source
+	if config.Source == "" {
+		ce.config.Source = defaultCloudEventsConfiguration.Source
 	}
-	if cfg.SpecVersion != "" {
-		config.SpecVersion = cfg.SpecVersion
+	if config.SpecVersion == "" {
+		ce.config.SpecVersion = defaultCloudEventsConfiguration.SpecVersion
 	}
-	if cfg.Type != "" {
-		config.Type = cfg.Type
+	if config.Type == "" {
+		ce.config.Type = defaultCloudEventsConfiguration.Type
 	}
-	config.SetSubjectLevel = cfg.SetSubjectLevel
 
 	fields := LogFields{}
-	fields[CESourceKey] = config.Source
-	fields[CESpecVersionKey] = config.SpecVersion
-	fields[CETypeKey] = config.Type
-
-	cloudEvents := CloudEvents{
-		config: config,
-		fields: fields,
-	}
+	fields[CESourceKey] = ce.config.Source
+	fields[CESpecVersionKey] = ce.config.SpecVersion
+	fields[CETypeKey] = ce.config.Type
+	ce.fields = fields
 
 	switch config.SetID {
 	case CEIncrID:
-		cloudEvents.genIncrementalID = incrementalID()
+		ce.genIncrementalID = incrementalID()
 	case CEHMAC:
 		fallthrough
 	default:
 		key := []byte(config.HMACKey)
-		cloudEvents.hmacHash = hmac.New(sha256.New, key)
+		ce.hmacHash = hmac.New(sha256.New, key)
 	}
-	return &cloudEvents
+	return &ce
 }
 
 // ceGetID returns the cloudevents id field for the message
