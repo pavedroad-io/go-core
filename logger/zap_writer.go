@@ -38,7 +38,6 @@ func newZapKafkaWriter(
 
 // Sync satisfies zapcore.WriteSyncer interface, zapcore.AddSync works as well
 func (zw *ZapKafkaWriter) Sync() error {
-	// TODO can writer be closed here?
 	return nil
 }
 

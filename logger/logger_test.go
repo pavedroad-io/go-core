@@ -29,8 +29,10 @@ type TestCases struct {
 
 var update = flag.Bool("update", false, "update golden files")
 
-func readConfiguration(t *testing.T, testname string) (Configuration, error) {
-	var cfg Configuration
+func readConfiguration(t *testing.T, testname string) (
+	LoggerConfiguration, error) {
+
+	var cfg LoggerConfiguration
 	input := filepath.Join("testdata", testname+".yaml")
 	yamlbytes, err := ioutil.ReadFile(input)
 	if err != nil {
@@ -50,7 +52,9 @@ func readConfiguration(t *testing.T, testname string) (Configuration, error) {
 	return cfg, nil
 }
 
-func writeConfiguration(t *testing.T, file string, cfg Configuration) error {
+func writeConfiguration(t *testing.T, file string,
+	cfg LoggerConfiguration) error {
+
 	ybytes, err := yaml.Marshal(cfg)
 	if err != nil {
 		t.Errorf("Failed to marshal %s config %s\n", file, err.Error())
@@ -60,8 +64,9 @@ func writeConfiguration(t *testing.T, file string, cfg Configuration) error {
 	return nil
 }
 
-func executeTests(t *testing.T, cfg Configuration) error {
+func executeTests(t *testing.T, cfg LoggerConfiguration) error {
 	log, err := NewLogger(cfg)
+
 	if err != nil {
 		t.Errorf("Failed to instantiate %s logger: %s",
 			cfg.LogPackage, err.Error())
@@ -78,7 +83,9 @@ func executeTests(t *testing.T, cfg Configuration) error {
 	return nil
 }
 
-func executeTopicTests(t *testing.T, cfg Configuration, topic string) error {
+func executeTopicTests(t *testing.T, cfg LoggerConfiguration,
+	topic string) error {
+
 	log, err := NewLogger(cfg)
 	if err != nil {
 		t.Errorf("Failed to instantiate %s logger: %s",
@@ -278,7 +285,8 @@ func TestConsole(t *testing.T) {
 			} else {
 				actual, err = ioutil.ReadFile(stdout)
 				if err != nil {
-					t.Fatalf("Failed to read file %s: %s\n", stdout, err.Error())
+					t.Fatalf("Failed to read file %s: %s\n", stdout,
+						err.Error())
 				}
 			}
 
@@ -302,8 +310,8 @@ func TestConsole(t *testing.T) {
 
 func TestLogfile(t *testing.T) {
 	var testcases = []TestCases{
-		{"LogrusLogfileDefault", "logrus logger to log file with default config"},
-		{"ZapLogfileDefault", "zap logger to log file with default config"},
+		{"LogrusLogfileDefault", "logrus logger to file with default config"},
+		{"ZapLogfileDefault", "zap logger to file with default config"},
 	}
 
 	for _, tc := range testcases {

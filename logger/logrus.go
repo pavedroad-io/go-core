@@ -45,7 +45,7 @@ func (f *ceFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 }
 
 // getFormatter returns a logrus formatter
-func getFormatter(format FormatType, config Configuration,
+func getFormatter(format FormatType, config LoggerConfiguration,
 	fields LogFields) logrus.Formatter {
 
 	switch format {
@@ -58,10 +58,10 @@ func getFormatter(format FormatType, config Configuration,
 		// Change keys for cloudevents
 		fieldmap := logrus.FieldMap{}
 		if config.EnableCloudEvents {
-			fieldmap[logrus.FieldKeyMsg] = ceDataKey
-			fieldmap[logrus.FieldKeyTime] = ceTimeKey
+			fieldmap[logrus.FieldKeyMsg] = CEDataKey
+			fieldmap[logrus.FieldKeyTime] = CETimeKey
 			if config.CloudEventsCfg.SetSubjectLevel {
-				fieldmap[logrus.FieldKeyLevel] = ceSubjectKey
+				fieldmap[logrus.FieldKeyLevel] = CESubjectKey
 			}
 		}
 		return &ceFormatter{
@@ -91,12 +91,16 @@ func getFormatter(format FormatType, config Configuration,
 }
 
 // newLogrusLogger return a logrus logger instance
-func newLogrusLogger(config Configuration) (Logger, error) {
+func newLogrusLogger(config LoggerConfiguration) (Logger, error) {
 	var kafkaHook *LogrusKafkaHook
 	var cloudEvents *CloudEvents
 	var fields LogFields
 
-	level, err := logrus.ParseLevel(string(config.LogLevel))
+	logLevel := config.LogLevel
+	if logLevel == "" {
+		logLevel = defaultLoggerConfiguration.LogLevel
+	}
+	level, err := logrus.ParseLevel(string(logLevel))
 	if err != nil {
 		return nil, err
 	}
@@ -119,10 +123,14 @@ func newLogrusLogger(config Configuration) (Logger, error) {
 	if config.EnableFile {
 		var fwriter io.Writer
 		var err error
+		fileLocation := config.FileLocation
+		if fileLocation == "" {
+			fileLocation = defaultLoggerConfiguration.FileLocation
+		}
 		if config.EnableRotation {
-			fwriter = rotationLogger(config.RotationCfg)
+			fwriter = rotationLogger(fileLocation, config.RotationCfg)
 		} else {
-			fwriter, err = os.OpenFile(config.FileLocation,
+			fwriter, err = os.OpenFile(fileLocation,
 				os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 			if err != nil {
 				return nil, err
@@ -267,13 +275,13 @@ func (l *logrusLogger) WithFields(fields LogFields) Logger {
 
 // WithKafkaFilterFn adds a filter function for each kafka record
 func (l *logrusLogger) WithKafkaFilterFn(filterFn FilterFunc) Logger {
-	l.kafkaHook.kp.kpConfig.filterFn = filterFn
+	l.kafkaHook.kp.config.filterFn = filterFn
 	return l
 }
 
 // WithKafkaKeyFn adds a key function for each kafka record
 func (l *logrusLogger) WithKafkaKeyFn(keyFn KeyFunc) Logger {
-	l.kafkaHook.kp.kpConfig.keyFn = keyFn
+	l.kafkaHook.kp.config.keyFn = keyFn
 	return l
 }
 
@@ -370,13 +378,13 @@ func (l *logrusLogEntry) WithFields(fields LogFields) Logger {
 
 // WithKafkaFilterFn adds a filter function for each kafka record
 func (l *logrusLogEntry) WithKafkaFilterFn(filterFn FilterFunc) Logger {
-	l.kafkaHook.kp.kpConfig.filterFn = filterFn
+	l.kafkaHook.kp.config.filterFn = filterFn
 	return l
 }
 
 // WithKafkaKeyFn adds a key function for each kafka record
 func (l *logrusLogEntry) WithKafkaKeyFn(keyFn KeyFunc) Logger {
-	l.kafkaHook.kp.kpConfig.keyFn = keyFn
+	l.kafkaHook.kp.config.keyFn = keyFn
 	return l
 }
 

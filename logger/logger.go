@@ -2,10 +2,6 @@
 
 package logger
 
-import (
-	"errors"
-)
-
 // LogFields provided for calls to WithFields for structured logging
 type LogFields map[string]interface{}
 
@@ -50,8 +46,8 @@ const (
 	Stderr ConsoleType = "stderr"
 )
 
-// Configuration stores the config for the logger
-type Configuration struct {
+// LoggerConfiguration stores the config for the logger
+type LoggerConfiguration struct {
 	LogPackage        PackageType
 	LogLevel          LevelType
 	EnableTimeStamps  bool
@@ -73,14 +69,18 @@ type Configuration struct {
 }
 
 // NewLogger returns a Logger instance
-func NewLogger(config Configuration) (Logger, error) {
+func NewLogger(config LoggerConfiguration) (Logger, error) {
+	err := checkConfig(config)
+	if err != nil {
+		return nil, err
+	}
 	switch config.LogPackage {
-	case ZapType:
-		return newZapLogger(config)
 	case LogrusType:
 		return newLogrusLogger(config)
+	case ZapType:
+		fallthrough
 	default:
-		return nil, errors.New("Invalid log type")
+		return newZapLogger(config)
 	}
 }
 

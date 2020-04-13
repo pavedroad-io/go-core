@@ -5,7 +5,7 @@ import (
 	"os/user"
 	"time"
 
-	"github.com/pavedroad-io/core/go/logger"
+	"github.com/pavedroad-io/go-core/logger"
 )
 
 // Create loggers for zap and logrus
@@ -14,24 +14,26 @@ import (
 
 func main() {
 	user, _ := user.Current()
-	config := logger.Configuration{
+	config := logger.LoggerConfiguration{
 		LogPackage:        logger.ZapType,
 		LogLevel:          logger.InfoType,
 		EnableTimeStamps:  true,
 		EnableColorLevels: true,
 		EnableCloudEvents: true,
-		EnableKafka:       true,
-		KafkaFormat:       logger.CEFormat,
+		CloudEventsCfg: logger.CloudEventsConfiguration{
+			SetID: logger.CEHMAC,
+		},
+		EnableKafka: true,
+		KafkaFormat: logger.CEFormat,
 		KafkaProducerCfg: logger.ProducerConfiguration{
 			Brokers:       []string{"localhost:9092"},
 			Topic:         "logs",
 			Partition:     logger.RandomPartition,
 			Key:           logger.FixedKey,
 			KeyName:       user.Username,
-			CloudeventsID: logger.HMAC,
 			Compression:   logger.CompressionSnappy,
 			AckWait:       logger.WaitForLocal,
-			FlushFreq:     500, // milliseconds
+			ProdFlushFreq: 500, // milliseconds
 			EnableTLS:     false,
 			EnableDebug:   false,
 		},
@@ -62,7 +64,7 @@ func main() {
 	// switch to UUID ID and level key
 
 	config.LogPackage = logger.LogrusType
-	config.KafkaProducerCfg.CloudeventsID = logger.UUID
+	config.CloudEventsCfg.SetID = logger.CEUUID
 	config.KafkaProducerCfg.Key = logger.LevelKey
 	log, err = logger.NewLogger(config)
 	if err != nil {
