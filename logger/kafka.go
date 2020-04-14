@@ -59,9 +59,9 @@ const (
 	// WaitForNone does not wait for any response
 	WaitForNone ackWaitType = "none"
 	// WaitForLocal waits for only the local commit to succeed
-	WaitForLocal = "local" // default
+	WaitForLocal ackWaitType = "local" // default
 	// WaitForAll waits for all in-sync replicas to commit
-	WaitForAll = "all"
+	WaitForAll ackWaitType = "all"
 )
 
 // FilterFunc func to add/modify/remove message map entries and return kafka key

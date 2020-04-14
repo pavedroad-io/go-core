@@ -11,17 +11,20 @@ import (
 	"github.com/spf13/viper"
 )
 
+// configType provides configuration type
+type configType string
+
 // Supported configuration types
 const (
-	EnvConfig  = "env"
-	FileConfig = "file"
-	BothConfig = "both"
+	EnvConfig  configType = "env"
+	FileConfig configType = "file"
+	BothConfig configType = "both"
 )
 
 // Supported auto init/config environment names
 const (
 	LogAutoInitEnvName = "PRLOG_AUTOINIT"
-	LogAutoCfgEnvName  = "PRLOG_AUTOCFG"
+	ConfigTypeEnvName  = "PRLOG_CFGTYPE"
 	ConfigFileEnvName  = "PRLOG_CFGFILE"
 )
 
@@ -33,7 +36,7 @@ const (
 	RotationEnvPrefix    = "PRROT"
 )
 
-// Default config file name
+// Default config file name without extension
 const (
 	ConfigFileName = "pr_log_config"
 )
@@ -144,20 +147,20 @@ func init() {
 		return
 	}
 
-	// set PRLOG_AUTOCFG as needed to override logger default configuration
-	autoCfg := os.Getenv(LogAutoCfgEnvName)
-	if autoCfg == "" {
+	// set PRLOG_CFGTYPE as needed to specify how to override logger defaults
+	cfgType := configType(os.Getenv(ConfigTypeEnvName))
+	if cfgType == "" {
 		// default to override configuration defaults via environment
-		autoCfg = EnvConfig
+		cfgType = EnvConfig
 	}
 
 	// set PRLOG_CFGFILE to override default config file name
-	filename := os.Getenv(ConfigFileEnvName)
-	if filename == "" {
-		filename = ConfigFileName
+	cfgFile := os.Getenv(ConfigFileEnvName)
+	if cfgFile == "" {
+		cfgFile = ConfigFileName
 	}
 
-	config, err := GetLoggerConfiguration(autoCfg, filename)
+	config, err := GetLoggerConfiguration(cfgType, cfgFile)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err.Error())
 		if errors.Is(err, ErrFatal) {
@@ -174,7 +177,7 @@ func init() {
 }
 
 // GetLoggerConfiguration generates config from defaults/config-file/environment
-func GetLoggerConfiguration(cfgType string,
+func GetLoggerConfiguration(cfgType configType,
 	cfgFileName string) (*LoggerConfiguration, error) {
 	errSetting := ErrNonFatal
 
@@ -245,8 +248,8 @@ func GetLoggerConfiguration(cfgType string,
 }
 
 // FillConfiguration fills config from defaults, config file and environment
-func FillConfiguration(defaultCfg interface{}, config interface{}, auto string,
-	filename string, prefix string) error {
+func FillConfiguration(defaultCfg interface{}, config interface{},
+	cfgType configType, filename string, prefix string) error {
 
 	var defaultMap map[string]interface{}
 	defaultJSON, err := json.Marshal(defaultCfg)
@@ -263,12 +266,12 @@ func FillConfiguration(defaultCfg interface{}, config interface{}, auto string,
 	for key, value := range defaultMap {
 		v.SetDefault(key, value)
 	}
-	if auto == EnvConfig || auto == BothConfig {
+	if cfgType == EnvConfig || cfgType == BothConfig {
 		v.SetEnvPrefix(prefix)
 		v.AutomaticEnv()
 	}
 
-	if auto == FileConfig || auto == BothConfig {
+	if cfgType == FileConfig || cfgType == BothConfig {
 		v.SetConfigName(filename)
 		v.AddConfigPath(".")
 		v.AddConfigPath("$HOME")
