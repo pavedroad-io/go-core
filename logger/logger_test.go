@@ -220,7 +220,10 @@ func TestMain(m *testing.M) {
 		fmt.Printf("=== INFO  Rewriting config files\n")
 	}
 
-	if runtest == "" && subtest == "" {
+	if testing.Short() {
+		// Skip Pubsub tests in short mode
+		pubsub = false
+	} else if runtest == "" && subtest == "" {
 		pubsub = true
 	} else {
 		pubsub = regexp.MustCompile(runtest).MatchString("TestPubsub") ||
@@ -381,6 +384,11 @@ func TestPubsub(t *testing.T) {
 		topics  = []string{"logs", "test"}
 		config  = cluster.NewConfig()
 	)
+
+	if testing.Short() {
+		// Skip Pubsub tests in short mode
+		t.SkipNow()
+	}
 
 	time.Sleep(5 * time.Second)
 	config.Consumer.Offsets.Initial = sarama.OffsetOldest
