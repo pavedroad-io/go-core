@@ -71,7 +71,7 @@ var defaultLoggerConfiguration = LoggerConfiguration{
 	FileFormat:        JSONFormat,
 	FileLocation:      "pavedroad.log",
 	EnableRotation:    false,
-	EnableDebug:       true,
+	EnableDebug:       false,
 }
 
 var defaultProducerConfiguration = ProducerConfiguration{

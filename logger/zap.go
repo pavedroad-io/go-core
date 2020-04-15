@@ -23,30 +23,23 @@ type zapLogger struct {
 // ceEncoder provides wrapper for the JSONEncoder (to insert CE fields)
 type ceEncoder struct {
 	zapcore.Encoder
-	fields LogFields
+	fields []zapcore.Field
 }
 
 // Clone meets the interface for the zapcore encoder
-func (e *ceEncoder) Clone() zapcore.Encoder {
+func (ce *ceEncoder) Clone() zapcore.Encoder {
 	return &ceEncoder{
-		e.Encoder.Clone(),
-		e.fields,
+		ce.Encoder.Clone(),
+		ce.fields,
 	}
 }
 
 // EncodeEntry meets the interface for the zapcore encoder
-func (e *ceEncoder) EncodeEntry(ent zapcore.Entry,
+func (ce *ceEncoder) EncodeEntry(entry zapcore.Entry,
 	fields []zapcore.Field) (*buffer.Buffer, error) {
 	// CE fields are added here, not by using WithFields
-	for key, val := range e.fields {
-		field := zapcore.Field{
-			Key:    key,
-			Type:   zapcore.StringType,
-			String: val.(string),
-		}
-		fields = append(fields, field)
-	}
-	return e.Encoder.EncodeEntry(ent, fields)
+	fields = append(fields, ce.fields...)
+	return ce.Encoder.EncodeEntry(entry, fields)
 }
 
 // getEncoder returns a zap encoder
@@ -75,9 +68,18 @@ func getEncoder(format FormatType, config LoggerConfiguration,
 				encoderConfig.LevelKey = CESubjectKey
 			}
 		}
+		ceFields := []zapcore.Field{}
+		for key, val := range fields {
+			ceField := zapcore.Field{
+				Key:    key,
+				Type:   zapcore.StringType,
+				String: val.(string),
+			}
+			ceFields = append(ceFields, ceField)
+		}
 		return &ceEncoder{
 			zapcore.NewJSONEncoder(encoderConfig),
-			fields,
+			ceFields,
 		}
 	case TextFormat:
 		fallthrough
