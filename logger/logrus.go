@@ -31,8 +31,9 @@ type ceFormatter struct {
 
 // Format meets the interface for the logrus formatter
 func (ce *ceFormatter) Format(entry *logrus.Entry) ([]byte, error) {
-	// CE fields are added here, not by using WithFields
+	// CE fields are added here, not by using WithFields at logger level
 	// make a deep copy of entry with the CE fields to format
+	// modifying entry directly would affect other formatters
 	ceEntry := entry.WithFields(ce.fields)
 	ceEntry.Level = entry.Level
 	ceEntry.Message = entry.Message
@@ -58,7 +59,6 @@ func getFormatter(format FormatType, config LoggerConfiguration,
 		fieldmap := logrus.FieldMap{}
 		if config.EnableCloudEvents {
 			fieldmap[logrus.FieldKeyMsg] = CEDataKey
-			fieldmap[logrus.FieldKeyTime] = CETimeKey
 			if config.CloudEventsCfg.SetSubjectLevel {
 				fieldmap[logrus.FieldKeyLevel] = CESubjectKey
 			}
