@@ -11,17 +11,21 @@ import (
 	"github.com/spf13/viper"
 )
 
-// Supported auto config environment names
+// configType provides configuration type
+type configType string
+
+// Supported configuration types
 const (
-	LogAutoInitEnvName = "PRLOG_AUTOINIT"
-	LogAutoCfgEnvName  = "PRLOG_AUTOCFG"
+	EnvConfig  configType = "env"
+	FileConfig configType = "file"
+	BothConfig configType = "both"
 )
 
-// Supported auto configuration types
+// Supported auto init/config environment names
 const (
-	EnvConfig  = "env"
-	FileConfig = "file"
-	BothConfig = "both"
+	LogAutoInitEnvName = "PRLOG_AUTOINIT"
+	ConfigTypeEnvName  = "PRLOG_CFGTYPE"
+	ConfigFileEnvName  = "PRLOG_CFGFILE"
 )
 
 // Supported environment name prefixes
@@ -32,13 +36,25 @@ const (
 	RotationEnvPrefix    = "PRROT"
 )
 
-// Supported config file names
+// Default config file name without extension
 const (
-	LogFileName = "pr_log_config"
+	ConfigFileName = "pr_log_config"
+)
+
+// Supported error messages
+const (
+	errInvalid     = "Invalid configuration type"
+	errLogger      = "Could not create logger configuration"
+	errKafka       = "Could not create kafka configuration"
+	errCloudevents = "Could not create cloudevents configuration"
+	errRotation    = "Could not create rotation configuration"
 )
 
 // logger global for go log pkg emulation
 var logger Logger
+
+var ErrFatal = errors.New("fatal")
+var ErrNonFatal = errors.New("nonfatal")
 
 var defaultLoggerConfiguration = LoggerConfiguration{
 	LogPackage:        ZapType,
@@ -55,7 +71,7 @@ var defaultLoggerConfiguration = LoggerConfiguration{
 	FileFormat:        JSONFormat,
 	FileLocation:      "pavedroad.log",
 	EnableRotation:    false,
-	EnableDebug:       true,
+	EnableDebug:       false,
 }
 
 var defaultProducerConfiguration = ProducerConfiguration{
@@ -131,75 +147,23 @@ func init() {
 		return
 	}
 
-	// set PRLOG_AUTOCFG as needed to override logger default configuration
-	autoCfg := os.Getenv(LogAutoCfgEnvName)
-	switch autoCfg {
-	case EnvConfig:
-	case FileConfig:
-	case BothConfig:
-	case "":
+	// set PRLOG_CFGTYPE as needed to specify how to override logger defaults
+	cfgType := configType(os.Getenv(ConfigTypeEnvName))
+	if cfgType == "" {
 		// default to override configuration defaults via environment
-		autoCfg = EnvConfig
-	default:
-		fmt.Fprintf(os.Stderr, "Invalid auto config type: %s\n", autoCfg)
-		os.Exit(1)
+		cfgType = EnvConfig
 	}
 
-	user, err := user.Current()
-	if err == nil {
-		defaultProducerConfiguration.KeyName = user.Username
+	// set PRLOG_CFGFILE to override default config file name
+	cfgFile := os.Getenv(ConfigFileEnvName)
+	if cfgFile == "" {
+		cfgFile = ConfigFileName
 	}
 
-	config := new(LoggerConfiguration)
-	// read config file and/or environment to override defaults
-	// single config file covers basic log config and all sub configs
-	// only gets environment overrides for the basic log config
-	err = EnvConfigure(DefaultCompleteCfg(), config, autoCfg, LogFileName,
-		LogEnvPrefix)
+	config, err := GetLoggerConfiguration(cfgType, cfgFile)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Could not create logger configuration: %s\n",
-			err.Error())
-		os.Exit(1)
-	}
-
-	// get environment overrides for the kafka sub config
-	kafkaConfig := new(ProducerConfiguration)
-	err = EnvConfigure(DefaultProducerCfg(), kafkaConfig, EnvConfig, "",
-		KafkaEnvPrefix)
-	if err == nil {
-		config.KafkaProducerCfg = *kafkaConfig
-	} else {
-		fmt.Fprintf(os.Stderr, "Could not create kafka configuration: %s\n",
-			err.Error())
-		if config.EnableKafka {
-			os.Exit(1)
-		}
-	}
-
-	// get environment overrides for the cloudevents sub config
-	ceConfig := new(CloudEventsConfiguration)
-	err = EnvConfigure(DefaultCloudEventsCfg(), ceConfig, EnvConfig, "",
-		CloudEventsEnvPrefix)
-	if err == nil {
-		config.CloudEventsCfg = *ceConfig
-	} else {
-		fmt.Fprintf(os.Stderr,
-			"Could not create cloudevents configuration: %s\n", err.Error())
-		if config.EnableCloudEvents {
-			os.Exit(1)
-		}
-	}
-
-	// get environment overrides for the rotation sub config
-	rotConfig := new(RotationConfiguration)
-	err = EnvConfigure(DefaultRotationCfg(), rotConfig, EnvConfig, "",
-		RotationEnvPrefix)
-	if err == nil {
-		config.RotationCfg = *rotConfig
-	} else {
-		fmt.Fprintf(os.Stderr, "Could not create rotation configuration: %s\n",
-			err.Error())
-		if config.EnableRotation {
+		fmt.Fprintf(os.Stderr, "%s\n", err.Error())
+		if errors.Is(err, ErrFatal) {
 			os.Exit(1)
 		}
 	}
@@ -212,9 +176,80 @@ func init() {
 	}
 }
 
-// EnvConfigure fills config from defaults, config file and environment
-func EnvConfigure(defaultCfg interface{}, config interface{}, auto string,
-	filename string, prefix string) error {
+// GetLoggerConfiguration generates config from defaults/config-file/environment
+func GetLoggerConfiguration(cfgType configType,
+	cfgFileName string) (*LoggerConfiguration, error) {
+	errSetting := ErrNonFatal
+
+	switch cfgType {
+	case EnvConfig:
+	case FileConfig:
+	case BothConfig:
+	default:
+		return nil, fmt.Errorf("%s: %s %w\n", errInvalid, cfgType, ErrFatal)
+	}
+
+	user, err := user.Current()
+	if err == nil {
+		defaultProducerConfiguration.KeyName = user.Username
+	}
+
+	config := new(LoggerConfiguration)
+	// read config file and/or environment to override defaults
+	// single config file covers basic log config and all sub configs
+	// only gets environment overrides for the basic log config
+	err = FillConfiguration(DefaultCompleteCfg(), config, cfgType, cfgFileName,
+		LogEnvPrefix)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %s %w\n", errLogger, err.Error(), ErrFatal)
+	}
+
+	// get environment overrides for the kafka sub config
+	kafkaConfig := new(ProducerConfiguration)
+	err = FillConfiguration(DefaultProducerCfg(), kafkaConfig, EnvConfig, "",
+		KafkaEnvPrefix)
+	if err == nil {
+		config.KafkaProducerCfg = *kafkaConfig
+	} else {
+		if config.EnableKafka {
+			errSetting = ErrFatal
+		}
+		return nil, fmt.Errorf("%s: %s %w\n", errKafka, err.Error(), errSetting)
+	}
+
+	// get environment overrides for the cloudevents sub config
+	ceConfig := new(CloudEventsConfiguration)
+	err = FillConfiguration(DefaultCloudEventsCfg(), ceConfig, EnvConfig, "",
+		CloudEventsEnvPrefix)
+	if err == nil {
+		config.CloudEventsCfg = *ceConfig
+	} else {
+		if config.EnableCloudEvents {
+			errSetting = ErrFatal
+		}
+		return nil, fmt.Errorf("%s: %s %w\n", errCloudevents, err.Error(),
+			errSetting)
+	}
+
+	// get environment overrides for the rotation sub config
+	rotConfig := new(RotationConfiguration)
+	err = FillConfiguration(DefaultRotationCfg(), rotConfig, EnvConfig, "",
+		RotationEnvPrefix)
+	if err == nil {
+		config.RotationCfg = *rotConfig
+	} else {
+		if config.EnableRotation {
+			errSetting = ErrFatal
+		}
+		return nil, fmt.Errorf("%s: %s %w\n", errRotation, err.Error(),
+			errSetting)
+	}
+	return config, nil
+}
+
+// FillConfiguration fills config from defaults, config file and environment
+func FillConfiguration(defaultCfg interface{}, config interface{},
+	cfgType configType, filename string, prefix string) error {
 
 	var defaultMap map[string]interface{}
 	defaultJSON, err := json.Marshal(defaultCfg)
@@ -231,12 +266,12 @@ func EnvConfigure(defaultCfg interface{}, config interface{}, auto string,
 	for key, value := range defaultMap {
 		v.SetDefault(key, value)
 	}
-	if auto == EnvConfig || auto == BothConfig {
+	if cfgType == EnvConfig || cfgType == BothConfig {
 		v.SetEnvPrefix(prefix)
 		v.AutomaticEnv()
 	}
 
-	if auto == FileConfig || auto == BothConfig {
+	if cfgType == FileConfig || cfgType == BothConfig {
 		v.SetConfigName(filename)
 		v.AddConfigPath(".")
 		v.AddConfigPath("$HOME")

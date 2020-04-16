@@ -1,7 +1,9 @@
 package main
 
 import (
-	log "github.com/pavedroad-io/core/go/logger"
+	"time"
+
+	log "github.com/pavedroad-io/go-core/logger"
 )
 
 func main() {
@@ -12,4 +14,5 @@ func main() {
 	log.Printf("Logging using env config: %s", "Printf")
 	log.Print("Logging using env config:", "Print")
 	log.Println("Logging using env config:", "Println")
+	time.Sleep(time.Second)
 }

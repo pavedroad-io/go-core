@@ -26,18 +26,18 @@ type logrusLogEntry struct {
 // ceFormatter provides wrapper for the JSONFormatter (to insert CE fields)
 type ceFormatter struct {
 	logrus.JSONFormatter
-	fields LogFields
+	fields logrus.Fields
 }
 
 // Format meets the interface for the logrus formatter
-func (f *ceFormatter) Format(entry *logrus.Entry) ([]byte, error) {
-	// CE fields are added here, not by using WithFields
-	for k, v := range f.fields {
-		if _, ok := entry.Data[k]; !ok {
-			entry.Data[k] = v
-		}
-	}
-	msg, err := f.JSONFormatter.Format(entry)
+func (ce *ceFormatter) Format(entry *logrus.Entry) ([]byte, error) {
+	// CE fields are added here, not by using WithFields at logger level
+	// make a deep copy of entry with the CE fields to format
+	// modifying entry directly would affect other formatters
+	ceEntry := entry.WithFields(ce.fields)
+	ceEntry.Level = entry.Level
+	ceEntry.Message = entry.Message
+	msg, err := ce.JSONFormatter.Format(ceEntry)
 	if err != nil {
 		return nil, err
 	}
@@ -59,10 +59,13 @@ func getFormatter(format FormatType, config LoggerConfiguration,
 		fieldmap := logrus.FieldMap{}
 		if config.EnableCloudEvents {
 			fieldmap[logrus.FieldKeyMsg] = CEDataKey
-			fieldmap[logrus.FieldKeyTime] = CETimeKey
 			if config.CloudEventsCfg.SetSubjectLevel {
 				fieldmap[logrus.FieldKeyLevel] = CESubjectKey
 			}
+		}
+		ceFields := logrus.Fields{}
+		for key, val := range fields {
+			ceFields[key] = val
 		}
 		return &ceFormatter{
 			logrus.JSONFormatter{
@@ -70,7 +73,7 @@ func getFormatter(format FormatType, config LoggerConfiguration,
 				TimestampFormat:  time.RFC3339,
 				FieldMap:         fieldmap,
 			},
-			fields,
+			ceFields,
 		}
 	case TextFormat:
 		fallthrough
