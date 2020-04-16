@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/user"
 	"strings"
+	"time"
 
 	"github.com/spf13/viper"
 )
@@ -82,11 +83,11 @@ var defaultProducerConfiguration = ProducerConfiguration{
 	KeyName:       "username",
 	Compression:   CompressionSnappy,
 	AckWait:       WaitForLocal,
-	ProdFlushFreq: 500, // milliseconds
+	ProdFlushFreq: 500 * time.Millisecond,
 	ProdRetryMax:  10,
-	ProdRetryFreq: 100, // milliseconds
+	ProdRetryFreq: 100 * time.Millisecond,
 	MetaRetryMax:  10,
-	MetaRetryFreq: 2000, // milliseconds
+	MetaRetryFreq: 2000 * time.Millisecond,
 	EnableTLS:     false,
 	EnableDebug:   false,
 }
