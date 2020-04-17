@@ -4,12 +4,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"os/signal"
 	"os/user"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/spf13/viper"
+	"gopkg.in/yaml.v2"
 )
 
 // configType provides configuration type
@@ -38,8 +42,10 @@ const (
 )
 
 // Default config file name without extension
+// Config file name exported on SIGUSR1
 const (
-	ConfigFileName = "pr_log_config"
+	ConfigFileName       = "pr_log_config"
+	ExportConfigFileName = "pr_export_config.yaml"
 )
 
 // Supported error messages
@@ -288,8 +294,42 @@ func FillConfiguration(defaultCfg interface{}, config interface{},
 	return nil
 }
 
+func ExportConfiguration(file string, config LoggerConfiguration) error {
+
+	ybytes, err := yaml.Marshal(config)
+	if err != nil {
+		return fmt.Errorf("Failed to marshal config %s\n", err.Error())
+	}
+	if file != "" {
+		err = ioutil.WriteFile(file, ybytes, 0644)
+		if err != nil {
+			return fmt.Errorf("Failed to export config %s\n", err.Error())
+		}
+	}
+	if config.EnableDebug {
+		os.Stderr.Write(ybytes)
+	}
+	return nil
+}
+
+var globalLoggerConfiguration LoggerConfiguration
+
+func signalCatcher() {
+	ch := make(chan os.Signal)
+	signal.Notify(ch, syscall.SIGUSR1)
+	<-ch
+	ExportConfiguration(ExportConfigFileName, globalLoggerConfiguration)
+	go signalCatcher()
+}
+
 func checkConfig(config LoggerConfiguration) error {
 	var errCount int
+
+	globalLoggerConfiguration = config
+	go signalCatcher()
+	if config.EnableDebug {
+		ExportConfiguration("", config)
+	}
 
 	checkLoggerConfig(config, &errCount)
 
