@@ -22,12 +22,65 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-type TestCases struct {
-	Name string
-	Desc string
-}
-
 var update = flag.Bool("update", false, "update golden files")
+var debug = flag.Bool("d", false, "Enable debug")
+var rewrite = flag.Bool("r", false, "Rewrite config")
+
+func TestMain(m *testing.M) {
+	var (
+		err     error
+		code    int
+		pubsub  bool
+		subtest string
+	)
+
+	flag.Parse()
+	listval := flag.Lookup("test.list").Value.String()
+	runval := flag.Lookup("test.run").Value.String()
+	runsplit := strings.Split(runval, "/")
+	runtest := runsplit[0]
+	if len(runsplit) > 1 {
+		subtest = runsplit[1]
+	}
+
+	if *debug {
+		fmt.Printf("=== INFO  Debug enabled\n")
+		fmt.Printf("--- runtest = <%+v>\n", runtest)
+		fmt.Printf("--- subtest = <%+v>\n", subtest)
+	}
+
+	if *rewrite {
+		fmt.Printf("=== INFO  Rewriting config files\n")
+	}
+
+	if testing.Short() {
+		// Skip Pubsub tests in short mode
+		pubsub = false
+	} else if runtest == "" && subtest == "" {
+		pubsub = true
+	} else {
+		pubsub = regexp.MustCompile(runtest).MatchString("Pubsub") ||
+			subtest != "" && regexp.MustCompile(subtest).MatchString("Pubsub")
+	}
+
+	if pubsub && listval == "" {
+		fmt.Printf("=== START Pubsub server\n")
+		err = pubsubStartup()
+	}
+
+	if err == nil {
+		code = m.Run()
+	} else {
+		code = 1
+	}
+
+	if pubsub && listval == "" {
+		fmt.Printf("=== STOP  Pubsub server\n")
+		pubsubShutdown()
+	}
+
+	os.Exit(code)
+}
 
 func readConfiguration(t *testing.T, testname string) (
 	LoggerConfiguration, error) {
@@ -190,200 +243,117 @@ func pubsubShutdown() error {
 	return err
 }
 
-var debug = flag.Bool("d", false, "Enable debug")
-var rewrite = flag.Bool("r", false, "Rewrite config")
+func setupConsole(t *testing.T, name string, pkg string,
+	cfg LoggerConfiguration) *os.File {
 
-func TestMain(m *testing.M) {
-	var (
-		err     error
-		code    int
-		pubsub  bool
-		subtest string
-	)
-
-	flag.Parse()
-	listval := flag.Lookup("test.list").Value.String()
-	runval := flag.Lookup("test.run").Value.String()
-	runsplit := strings.Split(runval, "/")
-	runtest := runsplit[0]
-	if len(runsplit) > 1 {
-		subtest = runsplit[1]
+	fname := filepath.Join("testdata", name+".out")
+	file, err := os.Create(fname)
+	if err != nil {
+		t.Fatalf("Failed to create file %s: %s\n", fname, err.Error())
 	}
 
-	if *debug {
-		fmt.Printf("=== INFO  Debug enabled\n")
-		fmt.Printf("--- runtest = <%+v>\n", runtest)
-		fmt.Printf("--- subtest = <%+v>\n", subtest)
-	}
-
-	if *rewrite {
-		fmt.Printf("=== INFO  Rewriting config files\n")
-	}
-
-	if testing.Short() {
-		// Skip Pubsub tests in short mode
-		pubsub = false
-	} else if runtest == "" && subtest == "" {
-		pubsub = true
+	var output *os.File
+	if cfg.ConsoleWriter == Stderr {
+		output = os.Stderr
+		os.Stderr = file
 	} else {
-		pubsub = regexp.MustCompile(runtest).MatchString("TestPubsub") ||
-			subtest != "" && regexp.MustCompile(subtest).MatchString("Pubsub")
+		output = os.Stdout
+		os.Stdout = file
 	}
+	return output
+}
 
-	if pubsub && listval == "" {
-		fmt.Printf("=== START Pubsub server\n")
-		err = pubsubStartup()
-	}
+func checkConsole(t *testing.T, name string, pkg string,
+	cfg LoggerConfiguration, output *os.File) {
+	var containsUnsortedJSON bool
+	var err error
 
-	if err == nil {
-		code = m.Run()
+	if cfg.ConsoleWriter == Stderr {
+		os.Stderr.Close()
+		os.Stderr = output
 	} else {
-		code = 1
+		os.Stdout.Close()
+		os.Stdout = output
 	}
 
-	if pubsub && listval == "" {
-		fmt.Printf("=== STOP  Pubsub server\n")
-		pubsubShutdown()
+	var actual []byte
+	fname := filepath.Join("testdata", name+".out")
+	if containsUnsortedJSON {
+		actual, err = normalizeJSONFile(t, fname)
+		if err != nil {
+			t.FailNow()
+		}
+	} else {
+		actual, err = ioutil.ReadFile(fname)
+		if err != nil {
+			t.Fatalf("Failed to read file %s: %s\n", fname,
+				err.Error())
+		}
 	}
 
-	os.Exit(code)
-}
-
-func TestConsole(t *testing.T) {
-	var testcases = []TestCases{
-		{"LogrusConsoleDefault", "logrus logger to console with default config"},
-		{"ZapConsoleDefault", "zap logger to console with default config"},
+	golden := filepath.Join("testdata", name+".golden")
+	if *update {
+		t.Logf("Updating %s\n", golden)
+		ioutil.WriteFile(golden, actual, 0644)
 	}
 
-	for _, tc := range testcases {
-		t.Run(tc.Name, func(t *testing.T) {
-			var containsUnsortedJSON bool
-			stdout := filepath.Join("testdata", tc.Name+".out")
-			fstdout, err := os.Create(stdout)
-			defer fstdout.Close()
-			if err != nil {
-				t.Fatalf("Failed to create file %s: %s\n", stdout, err.Error())
-			}
-			saveout := os.Stdout
-			os.Stdout = fstdout
+	expected, err := ioutil.ReadFile(golden)
+	if err != nil {
+		t.Fatalf("Failed to read file %s: %s\n", golden, err.Error())
+	}
 
-			cfg, err := readConfiguration(t, tc.Name)
-			if err != nil {
-				t.FailNow()
-			}
-
-			err = executeTests(t, cfg)
-			if err != nil {
-				t.FailNow()
-			}
-
-			os.Stdout = saveout
-
-			var actual []byte
-			if containsUnsortedJSON {
-				actual, err = normalizeJSONFile(t, stdout)
-				if err != nil {
-					t.FailNow()
-				}
-			} else {
-				actual, err = ioutil.ReadFile(stdout)
-				if err != nil {
-					t.Fatalf("Failed to read file %s: %s\n", stdout,
-						err.Error())
-				}
-			}
-
-			golden := filepath.Join("testdata", tc.Name+".golden")
-			if *update {
-				t.Logf("Updating %s\n", golden)
-				ioutil.WriteFile(golden, actual, 0644)
-			}
-
-			expected, err := ioutil.ReadFile(golden)
-			if err != nil {
-				t.Fatalf("Failed to read file %s: %s\n", golden, err.Error())
-			}
-
-			if !bytes.Equal(actual, expected) {
-				t.FailNow()
-			}
-		})
+	if !bytes.Equal(actual, expected) {
+		t.FailNow()
 	}
 }
 
-func TestLogfile(t *testing.T) {
-	var testcases = []TestCases{
-		{"LogrusLogfileDefault", "logrus logger to file with default config"},
-		{"ZapLogfileDefault", "zap logger to file with default config"},
-	}
+func setupLogfile(t *testing.T, name string, pkg string,
+	cfg LoggerConfiguration) {
 
-	for _, tc := range testcases {
-		t.Run(tc.Name, func(t *testing.T) {
-			cfg, err := readConfiguration(t, tc.Name)
-			if err != nil {
-				t.FailNow()
-			}
-
-			flogfile, err := os.Create(cfg.FileLocation)
-			defer flogfile.Close()
-			if err != nil {
-				t.Fatalf("Failed to create file %s: %s\n",
-					cfg.FileLocation, err.Error())
-			}
-
-			err = executeTests(t, cfg)
-			if err != nil {
-				t.FailNow()
-			}
-
-			var actual []byte
-			if cfg.LogPackage == ZapType {
-				actual, err = normalizeJSONFile(t, cfg.FileLocation)
-				if err != nil {
-					t.FailNow()
-				}
-			} else {
-				actual, err = ioutil.ReadFile(cfg.FileLocation)
-				if err != nil {
-					t.Fatalf("Failed to read file %s: %s\n",
-						cfg.FileLocation, err.Error())
-				}
-			}
-
-			golden := filepath.Join("testdata", tc.Name+".golden")
-			if *update {
-				t.Logf("Updating %s\n", golden)
-				ioutil.WriteFile(golden, actual, 0644)
-			}
-
-			expected, err := ioutil.ReadFile(golden)
-			if err != nil {
-				t.Fatalf("Failed to read file %s: %s\n", golden, err.Error())
-			}
-
-			if !bytes.Equal(actual, expected) {
-				t.FailNow()
-			}
-		})
+	flogfile, err := os.Create(cfg.FileLocation)
+	defer flogfile.Close()
+	if err != nil {
+		t.Fatalf("Failed to create file %s: %s\n",
+			cfg.FileLocation, err.Error())
 	}
 }
 
-func TestPubsub(t *testing.T) {
-	var testcases = []TestCases{
-		{"LogrusPubsubDefault", "logrus logger to kafka with default config"},
-		{"ZapPubsubDefault", "zap logger to kafka with default config"},
-		{"LogrusPubsubTopic", "logrus logger to kafka with test topic"},
-		{"ZapPubsubTopic", "zap logger to kafka with test topic"},
-		{"LogrusPubsubIncrID", "logrus logger to kafka with incremental ID"},
-		{"ZapPubsubIncrID", "zap logger to kafka with incremental ID"},
+func checkLogfile(t *testing.T, name string, pkg string,
+	cfg LoggerConfiguration) {
+	var err error
+
+	var actual []byte
+	if cfg.LogPackage == ZapType {
+		actual, err = normalizeJSONFile(t, cfg.FileLocation)
+		if err != nil {
+			t.FailNow()
+		}
+	} else {
+		actual, err = ioutil.ReadFile(cfg.FileLocation)
+		if err != nil {
+			t.Fatalf("Failed to read file %s: %s\n",
+				cfg.FileLocation, err.Error())
+		}
 	}
 
-	var (
-		brokers = []string{"localhost:9092"}
-		group   = "testgroup"
-		topics  = []string{"logs", "test"}
-		config  = cluster.NewConfig()
-	)
+	golden := filepath.Join("testdata", name+".golden")
+	if *update {
+		t.Logf("Updating %s\n", golden)
+		ioutil.WriteFile(golden, actual, 0644)
+	}
+
+	expected, err := ioutil.ReadFile(golden)
+	if err != nil {
+		t.Fatalf("Failed to read file %s: %s\n", golden, err.Error())
+	}
+
+	if !bytes.Equal(actual, expected) {
+		t.FailNow()
+	}
+}
+
+func setupPubsub(t *testing.T, name string, pkg string,
+	cfg LoggerConfiguration) {
 
 	if testing.Short() {
 		// Skip Pubsub tests in short mode
@@ -391,74 +361,210 @@ func TestPubsub(t *testing.T) {
 	}
 
 	time.Sleep(5 * time.Second)
+}
+
+func checkPubsub(t *testing.T, name string, pkg string,
+	cfg LoggerConfiguration) {
+	var actual []byte
+	var message string
+
+	var (
+		brokers = []string{"localhost:9092"}
+		group   = "testgroup"
+		topics  = []string{"logs", "test"}
+		config  = cluster.NewConfig()
+	)
 	config.Consumer.Offsets.Initial = sarama.OffsetOldest
 	consumer, err := cluster.NewConsumer(brokers, group, topics, config)
 	if err != nil {
 		t.Errorf("Failed to initialize consumer: %s\n", err.Error())
 	}
 	defer consumer.Close()
+
+	time.Sleep(2 * time.Second)
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
-
-	for _, tc := range testcases {
-		t.Run(tc.Name, func(t *testing.T) {
-			topictest := regexp.MustCompile("Topic").MatchString(tc.Name)
-			cfg, err := readConfiguration(t, tc.Name)
-			if err != nil {
-				t.FailNow()
+	done := time.After(2 * time.Second)
+readpubsub:
+	for {
+		select {
+		case msg := <-consumer.Messages():
+			consumer.MarkOffset(msg, "kafka-test")
+			message = fmt.Sprintf("T:%s P:%d K:%s V:%s\n",
+				msg.Topic, msg.Partition, msg.Key, msg.Value)
+			actual = append(actual, message...)
+			if *debug {
+				t.Log(message)
 			}
+		case err := <-consumer.Errors():
+			t.Logf("Consumer message error: %s\n", err.Error())
+		case <-interrupt:
+			t.Logf("Consumer caught interrupt signal\n")
+			break readpubsub
+		case <-done:
+			break readpubsub
+		}
+	}
 
-			if topictest {
-				err = executeTopicTests(t, cfg, "test")
-			} else {
-				err = executeTests(t, cfg)
-			}
-			if err != nil {
-				t.FailNow()
-			}
+	pub := filepath.Join("testdata", name+".pub")
+	ioutil.WriteFile(pub, actual, 0644)
 
-			var actual []byte
-			var message string
-			time.Sleep(2 * time.Second)
-			done := time.After(2 * time.Second)
-		readpubsub:
-			for {
-				select {
-				case msg := <-consumer.Messages():
-					consumer.MarkOffset(msg, "kafka-test")
-					message = fmt.Sprintf("T:%s P:%d K:%s V:%s\n",
-						msg.Topic, msg.Partition, msg.Key, msg.Value)
-					actual = append(actual, message...)
-					if *debug {
-						t.Log(message)
-					}
-				case err := <-consumer.Errors():
-					t.Logf("Consumer message error: %s\n", err.Error())
-				case <-interrupt:
-					t.Logf("Consumer caught interrupt signal\n")
-					break readpubsub
-				case <-done:
-					break readpubsub
-				}
-			}
+	golden := filepath.Join("testdata", name+".golden")
+	if *update {
+		t.Logf("Updating %s\n", golden)
+		ioutil.WriteFile(golden, actual, 0644)
+	}
 
-			pub := filepath.Join("testdata", tc.Name+".pub")
-			ioutil.WriteFile(pub, actual, 0644)
+	expected, err := ioutil.ReadFile(golden)
+	if err != nil {
+		t.Fatalf("Failed to read file %s: %s\n", golden, err.Error())
+	}
 
-			golden := filepath.Join("testdata", tc.Name+".golden")
-			if *update {
-				t.Logf("Updating %s\n", golden)
-				ioutil.WriteFile(golden, actual, 0644)
-			}
+	if !bytes.Equal(actual, expected) {
+		t.FailNow()
+	}
+}
 
-			expected, err := ioutil.ReadFile(golden)
-			if err != nil {
-				t.Fatalf("Failed to read file %s: %s\n", golden, err.Error())
-			}
+func getConfiguration(t *testing.T, testname string,
+	prefix string) LoggerConfiguration {
+	var cfg LoggerConfiguration
+	var err error
 
-			if !bytes.Equal(actual, expected) {
-				t.FailNow()
-			}
+	envtest := regexp.MustCompile(tEnv).MatchString(prefix)
+	if envtest {
+		cfg, err = GetLoggerConfiguration(BothConfig, "configfile")
+	} else {
+		cfg, err = readConfiguration(t, testname)
+	}
+	if err != nil {
+		t.FailNow()
+	}
+	return cfg
+}
+
+func runTests(t *testing.T, name string, pkg string,
+	cfg LoggerConfiguration) {
+	var err error
+
+	topictest := regexp.MustCompile("Topic").MatchString(name)
+	if topictest {
+		err = executeTopicTests(t, cfg, "test")
+	} else {
+		err = executeTests(t, cfg)
+	}
+	if err != nil {
+		t.FailNow()
+	}
+}
+
+func testHarness(t *testing.T, name string, prefix string, pkg string,
+	console bool, logfile bool, pubsub bool) {
+	var output *os.File
+
+	cfg := getConfiguration(t, name, prefix)
+
+	if console {
+		output = setupConsole(t, name, pkg, cfg)
+	}
+	if logfile {
+		setupLogfile(t, name, pkg, cfg)
+	}
+	if pubsub {
+		setupPubsub(t, name, pkg, cfg)
+	}
+
+	runTests(t, name, pkg, cfg)
+
+	if console {
+		checkConsole(t, name, pkg, cfg, output)
+	}
+	if logfile {
+		checkLogfile(t, name, pkg, cfg)
+	}
+	if pubsub {
+		checkPubsub(t, name, pkg, cfg)
+	}
+}
+
+const (
+	tNil = ""
+	tLru = "Logrus"
+	tZap = "Zap"
+	tCon = "Console"
+	tLog = "Logfile"
+	tPub = "Pubsub"
+	tEnv = "Env"
+)
+
+type TestCases struct {
+	Prefix string
+	Pkg    string
+	Con    string
+	Log    string
+	Pub    string
+	Test   string
+	Desc   string
+}
+
+func runTestCases(t *testing.T, testCases []TestCases) {
+	for _, tc := range testCases {
+		name := fmt.Sprintf("%s%s%s%s%s%s",
+			tc.Prefix, tc.Pkg, tc.Con, tc.Log, tc.Pub, tc.Test)
+
+		t.Run(name, func(t *testing.T) {
+			testHarness(t, name, tc.Prefix, tc.Pkg, tc.Con == tCon,
+				tc.Log == tLog, tc.Pub == tPub)
 		})
 	}
+}
+
+func TestConsole(t *testing.T) {
+	var testCases = []TestCases{
+		{tNil, tLru, tCon, tNil, tNil, "Default",
+			"logrus logger to console with default config"},
+		{tNil, tZap, tCon, tNil, tNil, "Default",
+			"zap logger to console with default config"},
+	}
+	runTestCases(t, testCases)
+}
+
+func TestLogfile(t *testing.T) {
+	var testCases = []TestCases{
+		{tNil, tLru, tNil, tLog, tNil, "Default",
+			"logrus logger to file with default config"},
+		{tNil, tZap, tNil, tLog, tNil, "Default",
+			"zap logger to file with default config"},
+	}
+	runTestCases(t, testCases)
+}
+
+func TestPubsub(t *testing.T) {
+	var testCases = []TestCases{
+		{tNil, tLru, tNil, tNil, tPub, "Default",
+			"logrus logger to kafka with default config"},
+		{tNil, tZap, tNil, tNil, tPub, "Default",
+			"zap logger to kafka with default config"},
+		{tNil, tLru, tNil, tNil, tPub, "Topic",
+			"logrus logger to kafka with test topic"},
+		{tNil, tZap, tNil, tNil, tPub, "Topic",
+			"zap logger to kafka with test topic"},
+		{tNil, tLru, tNil, tNil, tPub, "IncrID",
+			"logrus logger to kafka with incremental ID"},
+		{tNil, tZap, tNil, tNil, tPub, "IncrID",
+			"zap logger to kafka with incremental ID"},
+	}
+	runTestCases(t, testCases)
+}
+
+func TestEnv(t *testing.T) {
+	var testCases = []TestCases{
+		{tEnv, tLru, tCon, tNil, tNil, "Default", tNil},
+		{tEnv, tLru, tNil, tLog, tNil, "Default", tNil},
+		{tEnv, tLru, tNil, tNil, tPub, "Default", tNil},
+		{tEnv, tZap, tCon, tNil, tNil, "Default", tNil},
+		{tEnv, tZap, tNil, tLog, tNil, "Default", tNil},
+		{tEnv, tZap, tNil, tNil, tPub, "Default", tNil},
+	}
+	t.SkipNow()
+	runTestCases(t, testCases)
 }
