@@ -132,6 +132,8 @@ func (ce *CloudEvents) ceAddFields(msgMap map[string]interface{}) error {
 	if err != nil {
 		return err
 	}
-	msgMap[string(CEIDKey)] = id
+	if id != "" {
+		msgMap[string(CEIDKey)] = id
+	}
 	return nil
 }

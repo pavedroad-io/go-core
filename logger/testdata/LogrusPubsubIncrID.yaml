@@ -21,11 +21,11 @@ kafkaproducercfg:
   keyname: user
   compression: snappy
   ackwait: local
-  prodflushfreq: 500ns
+  prodflushfreq: 500ms
   prodretrymax: 10
-  prodretryfreq: 100ns
+  prodretryfreq: 100ms
   metaretrymax: 10
-  metaretryfreq: 1s
+  metaretryfreq: 2s
   enabletls: false
   tlscfg: null
   enabledebug: false

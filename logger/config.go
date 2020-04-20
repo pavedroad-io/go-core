@@ -176,7 +176,7 @@ func init() {
 	}
 
 	// initialize the logger with the customized configuration
-	if logger, err = NewLogger(*config); err != nil {
+	if logger, err = NewLogger(config); err != nil {
 		fmt.Fprintf(os.Stderr, "Could not instantiate %s logger package: %s\n",
 			config.LogPackage, err.Error())
 		os.Exit(1)
@@ -185,7 +185,8 @@ func init() {
 
 // GetLoggerConfiguration generates config from defaults/config-file/environment
 func GetLoggerConfiguration(cfgType configType,
-	cfgFileName string) (*LoggerConfiguration, error) {
+	cfgFileName string) (LoggerConfiguration, error) {
+	var cfg LoggerConfiguration
 	errSetting := ErrNonFatal
 
 	switch cfgType {
@@ -193,7 +194,7 @@ func GetLoggerConfiguration(cfgType configType,
 	case FileConfig:
 	case BothConfig:
 	default:
-		return nil, fmt.Errorf("%s: %s %w\n", errInvalid, cfgType, ErrFatal)
+		return cfg, fmt.Errorf("%s: %s %w\n", errInvalid, cfgType, ErrFatal)
 	}
 
 	user, err := user.Current()
@@ -208,7 +209,7 @@ func GetLoggerConfiguration(cfgType configType,
 	err = FillConfiguration(DefaultCompleteCfg(), config, cfgType, cfgFileName,
 		LogEnvPrefix)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %s %w\n", errLogger, err.Error(), ErrFatal)
+		return cfg, fmt.Errorf("%s: %s %w\n", errLogger, err.Error(), ErrFatal)
 	}
 
 	// get environment overrides for the kafka sub config
@@ -221,7 +222,7 @@ func GetLoggerConfiguration(cfgType configType,
 		if config.EnableKafka {
 			errSetting = ErrFatal
 		}
-		return nil, fmt.Errorf("%s: %s %w\n", errKafka, err.Error(), errSetting)
+		return cfg, fmt.Errorf("%s: %s %w\n", errKafka, err.Error(), errSetting)
 	}
 
 	// get environment overrides for the cloudevents sub config
@@ -234,7 +235,7 @@ func GetLoggerConfiguration(cfgType configType,
 		if config.EnableCloudEvents {
 			errSetting = ErrFatal
 		}
-		return nil, fmt.Errorf("%s: %s %w\n", errCloudevents, err.Error(),
+		return cfg, fmt.Errorf("%s: %s %w\n", errCloudevents, err.Error(),
 			errSetting)
 	}
 
@@ -248,10 +249,10 @@ func GetLoggerConfiguration(cfgType configType,
 		if config.EnableRotation {
 			errSetting = ErrFatal
 		}
-		return nil, fmt.Errorf("%s: %s %w\n", errRotation, err.Error(),
+		return cfg, fmt.Errorf("%s: %s %w\n", errRotation, err.Error(),
 			errSetting)
 	}
-	return config, nil
+	return *config, nil
 }
 
 // FillConfiguration fills config from defaults, config file and environment
