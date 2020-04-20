@@ -25,7 +25,7 @@ kafkaproducercfg:
   prodretrymax: 10
   prodretryfreq: 100ms
   metaretrymax: 10
-  metaretryfreq: 1s
+  metaretryfreq: 2s
   enabletls: false
   tlscfg: null
   enabledebug: false
