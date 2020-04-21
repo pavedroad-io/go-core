@@ -22,9 +22,19 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-var update = flag.Bool("update", false, "update golden files")
-var debug = flag.Bool("d", false, "Enable debug")
-var rewrite = flag.Bool("r", false, "Rewrite config")
+var (
+	update   = flag.Bool("update", false, "update golden files")
+	debug    = flag.Bool("d", false, "Enable debug")
+	rewrite  = flag.Bool("r", false, "Rewrite config")
+	explicit = flag.String("t", "", "Explicit test")
+)
+
+var (
+	testenv     bool
+	testinit    bool
+	testshort   bool
+	testverbose bool
+)
 
 func TestMain(m *testing.M) {
 	var (
@@ -33,8 +43,23 @@ func TestMain(m *testing.M) {
 		pubsub  bool
 		subtest string
 	)
-
 	flag.Parse()
+
+	testEnv := os.Getenv("PRTEST_ENV")
+	if testEnv == "true" {
+		testenv = true
+	}
+	testInit := os.Getenv("PRTEST_INIT")
+	if testInit == "true" {
+		testinit = true
+	}
+	if testing.Short() {
+		testshort = true
+	}
+	if testing.Verbose() {
+		testverbose = true
+	}
+
 	listval := flag.Lookup("test.list").Value.String()
 	runval := flag.Lookup("test.run").Value.String()
 	runsplit := strings.Split(runval, "/")
@@ -43,8 +68,15 @@ func TestMain(m *testing.M) {
 		subtest = runsplit[1]
 	}
 
+	if testshort {
+		fmt.Printf("=== INFO  Short enabled\n")
+	}
+	if testverbose {
+		fmt.Printf("=== INFO  Verbose enabled\n")
+	}
 	if *debug {
 		fmt.Printf("=== INFO  Debug enabled\n")
+		fmt.Printf("--- explicit = <%+v>\n", *explicit)
 		fmt.Printf("--- runtest = <%+v>\n", runtest)
 		fmt.Printf("--- subtest = <%+v>\n", subtest)
 	}
@@ -53,14 +85,15 @@ func TestMain(m *testing.M) {
 		fmt.Printf("=== INFO  Rewriting config files\n")
 	}
 
-	if testing.Short() {
+	if testenv || testinit || testshort {
+		// Server started externally for env/init tests
 		// Skip Pubsub tests in short mode
 		pubsub = false
 	} else if runtest == "" && subtest == "" {
 		pubsub = true
 	} else {
-		pubsub = regexp.MustCompile(runtest).MatchString("Pubsub") ||
-			subtest != "" && regexp.MustCompile(subtest).MatchString("Pubsub")
+		pubsub = regexp.MustCompile(tPub).MatchString(runtest) ||
+			subtest != "" && regexp.MustCompile(tPub).MatchString(subtest)
 	}
 
 	if pubsub && listval == "" {
@@ -133,6 +166,17 @@ func executeTests(t *testing.T, cfg LoggerConfiguration) error {
 	log.Print("Print using", cfg.LogPackage)
 	log.Printf("Printf using %s", cfg.LogPackage)
 	log.Println("Println using", cfg.LogPackage)
+	return nil
+}
+
+func executeInitTests(t *testing.T, cfg LoggerConfiguration) error {
+	Debugf("Debugf using %s", "Debugf (should not appear)")
+	Infof("Infof using %s", cfg.LogPackage)
+	Warnf("Warnf using %s", cfg.LogPackage)
+	Errorf("Errorf using %s", cfg.LogPackage)
+	Print("Print using", cfg.LogPackage)
+	Printf("Printf using %s", cfg.LogPackage)
+	Println("Println using", cfg.LogPackage)
 	return nil
 }
 
@@ -221,7 +265,8 @@ func dockerCompose(file string, args ...string) error {
 	cmd := exec.Command("docker-compose", myargs...)
 	err := cmd.Run()
 	if err != nil {
-		fmt.Printf("Failed to exec docker-compose %+v: %s\n", myargs, err.Error())
+		fmt.Printf("Failed to exec docker-compose %+v: %s\n", myargs,
+			err.Error())
 		return err
 	}
 	return nil
@@ -246,6 +291,10 @@ func pubsubShutdown() error {
 func setupConsole(t *testing.T, name string, pkg string,
 	cfg LoggerConfiguration) *os.File {
 
+	if testinit {
+		return nil
+	}
+
 	fname := filepath.Join("testdata", name+".out")
 	file, err := os.Create(fname)
 	if err != nil {
@@ -268,12 +317,14 @@ func checkConsole(t *testing.T, name string, pkg string,
 	var containsUnsortedJSON bool
 	var err error
 
-	if cfg.ConsoleWriter == Stderr {
-		os.Stderr.Close()
-		os.Stderr = output
-	} else {
-		os.Stdout.Close()
-		os.Stdout = output
+	if output != nil {
+		if cfg.ConsoleWriter == Stderr {
+			os.Stderr.Close()
+			os.Stderr = output
+		} else {
+			os.Stdout.Close()
+			os.Stdout = output
+		}
 	}
 
 	var actual []byte
@@ -308,20 +359,21 @@ func checkConsole(t *testing.T, name string, pkg string,
 }
 
 func setupLogfile(t *testing.T, name string, pkg string,
-	cfg LoggerConfiguration) {
+	cfg LoggerConfiguration) *os.File {
 
 	flogfile, err := os.Create(cfg.FileLocation)
-	defer flogfile.Close()
 	if err != nil {
 		t.Fatalf("Failed to create file %s: %s\n",
 			cfg.FileLocation, err.Error())
 	}
+	return flogfile
 }
 
 func checkLogfile(t *testing.T, name string, pkg string,
-	cfg LoggerConfiguration) {
+	cfg LoggerConfiguration, output *os.File) {
 	var err error
 
+	output.Close()
 	var actual []byte
 	if cfg.LogPackage == ZapType {
 		actual, err = normalizeJSONFile(t, cfg.FileLocation)
@@ -359,7 +411,6 @@ func setupPubsub(t *testing.T, name string, pkg string,
 		// Skip Pubsub tests in short mode
 		t.SkipNow()
 	}
-
 	time.Sleep(5 * time.Second)
 }
 
@@ -430,9 +481,10 @@ func getConfiguration(t *testing.T, testname string,
 	var cfg LoggerConfiguration
 	var err error
 
-	envtest := regexp.MustCompile(tEnv).MatchString(prefix)
-	if envtest {
-		cfg, err = GetLoggerConfiguration(BothConfig, "configfile")
+	if testenv {
+		cfg, err = GetLoggerConfiguration(EnvConfig, "")
+	} else if testinit {
+		cfg = globalLoggerConfiguration
 	} else {
 		cfg, err = readConfiguration(t, testname)
 	}
@@ -446,8 +498,10 @@ func runTests(t *testing.T, name string, pkg string,
 	cfg LoggerConfiguration) {
 	var err error
 
-	topictest := regexp.MustCompile("Topic").MatchString(name)
-	if topictest {
+	topicTest := regexp.MustCompile("Topic").MatchString(name)
+	if testinit {
+		err = executeInitTests(t, cfg)
+	} else if topicTest {
 		err = executeTopicTests(t, cfg, "test")
 	} else {
 		err = executeTests(t, cfg)
@@ -459,15 +513,16 @@ func runTests(t *testing.T, name string, pkg string,
 
 func testHarness(t *testing.T, name string, prefix string, pkg string,
 	console bool, logfile bool, pubsub bool) {
-	var output *os.File
+	var conOutput *os.File
+	var logOutput *os.File
 
 	cfg := getConfiguration(t, name, prefix)
 
 	if console {
-		output = setupConsole(t, name, pkg, cfg)
+		conOutput = setupConsole(t, name, pkg, cfg)
 	}
 	if logfile {
-		setupLogfile(t, name, pkg, cfg)
+		logOutput = setupLogfile(t, name, pkg, cfg)
 	}
 	if pubsub {
 		setupPubsub(t, name, pkg, cfg)
@@ -476,10 +531,10 @@ func testHarness(t *testing.T, name string, prefix string, pkg string,
 	runTests(t, name, pkg, cfg)
 
 	if console {
-		checkConsole(t, name, pkg, cfg, output)
+		checkConsole(t, name, pkg, cfg, conOutput)
 	}
 	if logfile {
-		checkLogfile(t, name, pkg, cfg)
+		checkLogfile(t, name, pkg, cfg, logOutput)
 	}
 	if pubsub {
 		checkPubsub(t, name, pkg, cfg)
@@ -493,6 +548,7 @@ const (
 	tCon = "Console"
 	tLog = "Logfile"
 	tPub = "Pubsub"
+	tIni = "Init"
 	tEnv = "Env"
 )
 
@@ -511,6 +567,9 @@ func runTestCases(t *testing.T, testCases []TestCases) {
 		name := fmt.Sprintf("%s%s%s%s%s%s",
 			tc.Prefix, tc.Pkg, tc.Con, tc.Log, tc.Pub, tc.Test)
 
+		if *explicit != "" && *explicit != name {
+			t.SkipNow()
+		}
 		t.Run(name, func(t *testing.T) {
 			testHarness(t, name, tc.Prefix, tc.Pkg, tc.Con == tCon,
 				tc.Log == tLog, tc.Pub == tPub)
@@ -525,6 +584,9 @@ func TestConsole(t *testing.T) {
 		{tNil, tZap, tCon, tNil, tNil, "Default",
 			"zap logger to console with default config"},
 	}
+	if testinit || testenv {
+		t.SkipNow()
+	}
 	runTestCases(t, testCases)
 }
 
@@ -534,6 +596,9 @@ func TestLogfile(t *testing.T) {
 			"logrus logger to file with default config"},
 		{tNil, tZap, tNil, tLog, tNil, "Default",
 			"zap logger to file with default config"},
+	}
+	if testinit || testenv {
+		t.SkipNow()
 	}
 	runTestCases(t, testCases)
 }
@@ -553,6 +618,9 @@ func TestPubsub(t *testing.T) {
 		{tNil, tZap, tNil, tNil, tPub, "IncrID",
 			"zap logger to kafka with incremental ID"},
 	}
+	if testinit || testenv || testshort {
+		t.SkipNow()
+	}
 	runTestCases(t, testCases)
 }
 
@@ -565,6 +633,23 @@ func TestEnv(t *testing.T) {
 		{tEnv, tZap, tNil, tLog, tNil, "Default", tNil},
 		{tEnv, tZap, tNil, tNil, tPub, "Default", tNil},
 	}
-	t.SkipNow()
+	if !testenv {
+		t.SkipNow()
+	}
+	runTestCases(t, testCases)
+}
+
+func TestInit(t *testing.T) {
+	var testCases = []TestCases{
+		{tIni, tLru, tCon, tNil, tNil, "Default", tNil},
+		{tIni, tLru, tNil, tLog, tNil, "Default", tNil},
+		{tIni, tLru, tNil, tNil, tPub, "Default", tNil},
+		{tIni, tZap, tCon, tNil, tNil, "Default", tNil},
+		{tIni, tZap, tNil, tLog, tNil, "Default", tNil},
+		{tIni, tZap, tNil, tNil, tPub, "Default", tNil},
+	}
+	if !testinit {
+		t.SkipNow()
+	}
 	runTestCases(t, testCases)
 }

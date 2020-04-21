@@ -1,0 +1,6 @@
+{"level":"info","msg":"Infof using logrus"}
+{"level":"warning","msg":"Warnf using logrus"}
+{"level":"error","msg":"Errorf using logrus"}
+{"level":"info","msg":"Print usinglogrus"}
+{"level":"info","msg":"Printf using logrus"}
+{"level":"info","msg":"Println using logrus"}

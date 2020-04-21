@@ -1,0 +1,6 @@
+[36mINFO[0m Infof using logrus                           
+[33mWARN[0m Warnf using logrus                           
+[31mERRO[0m Errorf using logrus                          
+[36mINFO[0m Print usinglogrus                            
+[36mINFO[0m Printf using logrus                          
+[36mINFO[0m Println using logrus                         

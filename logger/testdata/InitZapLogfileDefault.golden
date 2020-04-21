@@ -1,0 +1,6 @@
+{"level":"info","msg":"Infof using zap"}
+{"level":"warn","msg":"Warnf using zap"}
+{"level":"error","msg":"Errorf using zap"}
+{"level":"info","msg":"Print usingzap"}
+{"level":"info","msg":"Printf using zap"}
+{"level":"info","msg":"Println using zap"}
