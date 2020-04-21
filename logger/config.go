@@ -28,6 +28,7 @@ const (
 
 // Supported auto init/config environment names
 const (
+	LogTestInitEnvName = "PRTEST_INIT"
 	LogAutoInitEnvName = "PRLOG_AUTOINIT"
 	ConfigTypeEnvName  = "PRLOG_CFGTYPE"
 	ConfigFileEnvName  = "PRLOG_CFGFILE"
@@ -59,6 +60,9 @@ const (
 
 // logger global for go log pkg emulation
 var logger Logger
+
+// debug global for testing auto init
+var debugCapture *os.File
 
 var ErrFatal = errors.New("fatal")
 var ErrNonFatal = errors.New("nonfatal")
@@ -347,6 +351,7 @@ func checkConfig(config LoggerConfiguration) error {
 	if errCount > 0 {
 		return errors.New("Invalid configuration")
 	}
+
 	return nil
 }
 
@@ -443,9 +448,20 @@ func checkLoggerTypes(lc LoggerConfiguration, errCount *int) {
 	case Stderr:
 	case "":
 	default:
-		fmt.Fprintf(os.Stderr, "Invalid ConsoleWriter type: %s\n",
-			lc.ConsoleWriter)
-		*errCount++
+		testInit := os.Getenv(LogTestInitEnvName)
+		if testInit == "true" {
+			file, err := os.Create(string(lc.ConsoleWriter))
+			if err == nil {
+				debugCapture = file
+			} else {
+				fmt.Fprintf(os.Stderr, "debugCapture failed: <%s>\n",
+					err.Error())
+			}
+		} else {
+			fmt.Fprintf(os.Stderr, "Invalid ConsoleWriter type: %s\n",
+				lc.ConsoleWriter)
+			*errCount++
+		}
 	}
 
 	switch lc.KafkaFormat {
