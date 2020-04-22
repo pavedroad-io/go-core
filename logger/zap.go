@@ -152,7 +152,9 @@ func newZapLogger(config LoggerConfiguration) (Logger, error) {
 
 	if config.EnableConsole {
 		var cwriter io.Writer
-		if config.ConsoleWriter == Stderr {
+		if debugCapture != nil {
+			cwriter = debugCapture
+		} else if config.ConsoleWriter == Stderr {
 			cwriter = os.Stderr
 		} else {
 			cwriter = os.Stdout
