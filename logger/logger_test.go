@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"github.com/Shopify/sarama"
-	cluster "github.com/bsm/sarama-cluster"
 	"gopkg.in/yaml.v2"
 )
 
@@ -414,38 +413,45 @@ func setupPubsub(t *testing.T, name string, pkg string,
 	time.Sleep(5 * time.Second)
 }
 
-func checkPubsub(t *testing.T, name string, pkg string,
-	cfg LoggerConfiguration) {
+func checkPubsub(t *testing.T, name string, pkg string, cfg LoggerConfiguration,
+	topic string, offset int64, count int64) {
 	var actual []byte
 	var message string
 
 	var (
 		brokers = []string{"localhost:9092"}
-		group   = "testgroup"
-		topics  = []string{"logs", "test"}
-		config  = cluster.NewConfig()
+		config  = sarama.NewConfig()
 	)
-	config.Consumer.Offsets.Initial = sarama.OffsetOldest
-	consumer, err := cluster.NewConsumer(brokers, group, topics, config)
+	master, err := sarama.NewConsumer(brokers, config)
 	if err != nil {
 		t.Errorf("Failed to initialize consumer: %s\n", err.Error())
 	}
+	consumer, err := master.ConsumePartition(topic, 0, offset)
+	if err != nil {
+		t.Errorf("Failed to get partition consumer: %s\n", err.Error())
+	}
 	defer consumer.Close()
+	defer master.Close()
 
 	time.Sleep(2 * time.Second)
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 	done := time.After(2 * time.Second)
+	var msgCount int64 = 0
+
 readpubsub:
 	for {
 		select {
 		case msg := <-consumer.Messages():
-			consumer.MarkOffset(msg, "kafka-test")
 			message = fmt.Sprintf("T:%s P:%d K:%s V:%s\n",
 				msg.Topic, msg.Partition, msg.Key, msg.Value)
 			actual = append(actual, message...)
 			if *debug {
 				t.Log(message)
+			}
+			msgCount++
+			if msgCount >= count {
+				break readpubsub
 			}
 		case err := <-consumer.Errors():
 			t.Logf("Consumer message error: %s\n", err.Error())
@@ -453,6 +459,7 @@ readpubsub:
 			t.Logf("Consumer caught interrupt signal\n")
 			break readpubsub
 		case <-done:
+			t.Logf("Consumer caught timeout signal\n")
 			break readpubsub
 		}
 	}
@@ -494,15 +501,15 @@ func getConfiguration(t *testing.T, testname string,
 	return cfg
 }
 
-func runTests(t *testing.T, name string, pkg string,
-	cfg LoggerConfiguration) {
+func runTests(t *testing.T, name string, pkg string, cfg LoggerConfiguration,
+	topic string) {
 	var err error
 
 	topicTest := regexp.MustCompile("Topic").MatchString(name)
 	if testinit {
 		err = executeInitTests(t, cfg)
 	} else if topicTest {
-		err = executeTopicTests(t, cfg, "test")
+		err = executeTopicTests(t, cfg, topic)
 	} else {
 		err = executeTests(t, cfg)
 	}
@@ -512,7 +519,8 @@ func runTests(t *testing.T, name string, pkg string,
 }
 
 func testHarness(t *testing.T, name string, prefix string, pkg string,
-	console bool, logfile bool, pubsub bool) {
+	console bool, logfile bool, pubsub bool, topic string, offset int64,
+	count int64) {
 	var conOutput *os.File
 	var logOutput *os.File
 
@@ -528,7 +536,7 @@ func testHarness(t *testing.T, name string, prefix string, pkg string,
 		setupPubsub(t, name, pkg, cfg)
 	}
 
-	runTests(t, name, pkg, cfg)
+	runTests(t, name, pkg, cfg, topic)
 
 	if console {
 		checkConsole(t, name, pkg, cfg, conOutput)
@@ -537,7 +545,7 @@ func testHarness(t *testing.T, name string, prefix string, pkg string,
 		checkLogfile(t, name, pkg, cfg, logOutput)
 	}
 	if pubsub {
-		checkPubsub(t, name, pkg, cfg)
+		checkPubsub(t, name, pkg, cfg, topic, offset, count)
 	}
 }
 
@@ -558,6 +566,9 @@ type TestCases struct {
 	Con    string
 	Log    string
 	Pub    string
+	Topic  string
+	Offset int64
+	Count  int64
 	Test   string
 	Desc   string
 }
@@ -572,16 +583,16 @@ func runTestCases(t *testing.T, testCases []TestCases) {
 		}
 		t.Run(name, func(t *testing.T) {
 			testHarness(t, name, tc.Prefix, tc.Pkg, tc.Con == tCon,
-				tc.Log == tLog, tc.Pub == tPub)
+				tc.Log == tLog, tc.Pub == tPub, tc.Topic, tc.Offset, tc.Count)
 		})
 	}
 }
 
 func TestConsole(t *testing.T) {
 	var testCases = []TestCases{
-		{tNil, tLru, tCon, tNil, tNil, "Default",
+		{tNil, tLru, tCon, tNil, tNil, tNil, 0, 0, "Default",
 			"logrus logger to console with default config"},
-		{tNil, tZap, tCon, tNil, tNil, "Default",
+		{tNil, tZap, tCon, tNil, tNil, tNil, 0, 0, "Default",
 			"zap logger to console with default config"},
 	}
 	if testinit || testenv {
@@ -592,9 +603,9 @@ func TestConsole(t *testing.T) {
 
 func TestLogfile(t *testing.T) {
 	var testCases = []TestCases{
-		{tNil, tLru, tNil, tLog, tNil, "Default",
+		{tNil, tLru, tNil, tLog, tNil, tNil, 0, 0, "Default",
 			"logrus logger to file with default config"},
-		{tNil, tZap, tNil, tLog, tNil, "Default",
+		{tNil, tZap, tNil, tLog, tNil, tNil, 0, 0, "Default",
 			"zap logger to file with default config"},
 	}
 	if testinit || testenv {
@@ -605,17 +616,17 @@ func TestLogfile(t *testing.T) {
 
 func TestPubsub(t *testing.T) {
 	var testCases = []TestCases{
-		{tNil, tLru, tNil, tNil, tPub, "Default",
+		{tNil, tLru, tNil, tNil, tPub, "logs", 0, 6, "Default",
 			"logrus logger to kafka with default config"},
-		{tNil, tZap, tNil, tNil, tPub, "Default",
+		{tNil, tZap, tNil, tNil, tPub, "logs", 6, 6, "Default",
 			"zap logger to kafka with default config"},
-		{tNil, tLru, tNil, tNil, tPub, "Topic",
+		{tNil, tLru, tNil, tNil, tPub, "test", 0, 6, "Topic",
 			"logrus logger to kafka with test topic"},
-		{tNil, tZap, tNil, tNil, tPub, "Topic",
+		{tNil, tZap, tNil, tNil, tPub, "test", 6, 6, "Topic",
 			"zap logger to kafka with test topic"},
-		{tNil, tLru, tNil, tNil, tPub, "IncrID",
+		{tNil, tLru, tNil, tNil, tPub, "logs", 12, 6, "IncrID",
 			"logrus logger to kafka with incremental ID"},
-		{tNil, tZap, tNil, tNil, tPub, "IncrID",
+		{tNil, tZap, tNil, tNil, tPub, "logs", 18, 6, "IncrID",
 			"zap logger to kafka with incremental ID"},
 	}
 	if testinit || testenv || testshort {
@@ -626,12 +637,12 @@ func TestPubsub(t *testing.T) {
 
 func TestEnv(t *testing.T) {
 	var testCases = []TestCases{
-		{tEnv, tLru, tCon, tNil, tNil, "Default", tNil},
-		{tEnv, tLru, tNil, tLog, tNil, "Default", tNil},
-		{tEnv, tLru, tNil, tNil, tPub, "Default", tNil},
-		{tEnv, tZap, tCon, tNil, tNil, "Default", tNil},
-		{tEnv, tZap, tNil, tLog, tNil, "Default", tNil},
-		{tEnv, tZap, tNil, tNil, tPub, "Default", tNil},
+		{tEnv, tLru, tCon, tNil, tNil, tNil, 0, 0, "Default", tNil},
+		{tEnv, tLru, tNil, tLog, tNil, tNil, 0, 0, "Default", tNil},
+		{tEnv, tLru, tNil, tNil, tPub, "logs", 0, 6, "Default", tNil},
+		{tEnv, tZap, tCon, tNil, tNil, tNil, 0, 0, "Default", tNil},
+		{tEnv, tZap, tNil, tLog, tNil, tNil, 0, 0, "Default", tNil},
+		{tEnv, tZap, tNil, tNil, tPub, "logs", 6, 6, "Default", tNil},
 	}
 	if !testenv {
 		t.SkipNow()
@@ -641,12 +652,12 @@ func TestEnv(t *testing.T) {
 
 func TestInit(t *testing.T) {
 	var testCases = []TestCases{
-		{tIni, tLru, tCon, tNil, tNil, "Default", tNil},
-		{tIni, tLru, tNil, tLog, tNil, "Default", tNil},
-		{tIni, tLru, tNil, tNil, tPub, "Default", tNil},
-		{tIni, tZap, tCon, tNil, tNil, "Default", tNil},
-		{tIni, tZap, tNil, tLog, tNil, "Default", tNil},
-		{tIni, tZap, tNil, tNil, tPub, "Default", tNil},
+		{tIni, tLru, tCon, tNil, tNil, tNil, 0, 0, "Default", tNil},
+		{tIni, tLru, tNil, tLog, tNil, tNil, 0, 0, "Default", tNil},
+		{tIni, tLru, tNil, tNil, tPub, "logs", 12, 6, "Default", tNil},
+		{tIni, tZap, tCon, tNil, tNil, tNil, 0, 0, "Default", tNil},
+		{tIni, tZap, tNil, tLog, tNil, tNil, 0, 0, "Default", tNil},
+		{tIni, tZap, tNil, tNil, tPub, "logs", 18, 6, "Default", tNil},
 	}
 	if !testinit {
 		t.SkipNow()
