@@ -285,9 +285,21 @@ func (kp *KafkaProducer) sendMessage(msg []byte) error {
 	}
 
 	kp.producer.Input() <- &sarama.ProducerMessage{
-		Key:   key,
 		Topic: topic.(string),
+		Key:   key,
 		Value: sarama.ByteEncoder(newmsg),
+	}
+	return nil
+}
+
+// sendMessageTK send msg with topic and key and no processing
+func (kp *KafkaProducer) sendMessageTKV(topic string, key []byte,
+	value []byte) error {
+
+	kp.producer.Input() <- &sarama.ProducerMessage{
+		Topic: topic,
+		Key:   sarama.ByteEncoder(key),
+		Value: sarama.ByteEncoder(value),
 	}
 	return nil
 }
