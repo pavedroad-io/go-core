@@ -71,8 +71,8 @@ func (s *sender) SendTKV(topic string, key []byte, msg []byte) error {
 
 // SendMult sends message to multiple topics with no processing
 func (s *sender) SendMult(topics []string, key []byte, msg []byte) error {
-	for i := range topics {
-		err := s.SendTKV(topics[i], key, msg)
+	for _, topic := range topics {
+		err := s.SendTKV(topic, key, msg)
 		if err != nil {
 			return err
 		}
