@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"sync"
 
 	"github.com/Shopify/sarama"
 )
 
 var (
-	brokers        = []string{"localhost:9092"}
-	config         = sarama.NewConfig()
+	brokers = []string{"localhost:9092", "192.168.64.2:9092"}
+	config  = sarama.NewConfig()
 )
 
 func main() {
@@ -31,6 +32,7 @@ func main() {
 	// init exit
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
+	wg := sync.WaitGroup{}
 
 	// consume all topics
 	for _, topic := range topics {
@@ -49,27 +51,33 @@ func main() {
 				sarama.OffsetOldest)
 			if err != nil {
 				fmt.Fprintf(os.Stderr,
-					"Failed to get consumer for topic %s partition %d: %s\n",
+					"Failed to get consumer for topic %s partition %+v: %s\n",
 					topic, partition, err.Error())
 				os.Exit(1)
 			}
 			defer consumer.Close()
 			// consume log messages
-			go func() {
+			wg.Add(1)
+			go func(w *sync.WaitGroup) {
+			loop:
 				for {
 					select {
 					case msg := <-consumer.Messages():
 						fmt.Printf("T:%s P:%d K:%s V:%s\n\n",
 							msg.Topic, msg.Partition, msg.Key, msg.Value)
 					case err := <-consumer.Errors():
-						fmt.Fprintf(os.Stderr, "Error T:%s P:%d %s\n",
+						fmt.Fprintf(os.Stderr, "Error T:%s P:%+v %s\n",
 							topic, partition, err)
+						break loop
 					case <-interrupt:
 						fmt.Printf("\nExiting consumer\n")
-						return
+						break loop
 					}
 				}
-			}()
+				w.Done()
+				return
+			}(&wg)
 		}
 	}
+	wg.Wait()
 }
