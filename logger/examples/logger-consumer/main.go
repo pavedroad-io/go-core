@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	brokers        = []string{"localhost:9092", "192.168.64.2:9092"}
+	brokers        = []string{"localhost:9092"}
 	topic   string = "logs"
 	config         = sarama.NewConfig()
 )
