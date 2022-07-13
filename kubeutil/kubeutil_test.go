@@ -103,7 +103,7 @@ func TestExecWithContext(t *testing.T) {
 		CustomerID:         1,
 		UserID:             "test",
 		Kind:               "KubeUser",
-		AuthorizationToken: "#########",
+		AuthorizationToken: "1231321233133",
 		ReferenceID:        "123",
 	}
 	testManifest := []byte(`{"kind":"Deployment","apiVersion":"apps/v1","metadata":{"name":"test-deployment","namespace":"argo-events"},"spec":{"replicas":1,"selector":{"matchLabels":{"app":"test-deployment"}},"template":{"metadata":{"labels":{"app":"test-deployment"}},"spec":{"containers":[{"name":"test-container","image":"test-image","ports":[{"containerPort":8080}]}]}}}}`)
@@ -128,4 +128,27 @@ func TestExecWithContext(t *testing.T) {
 		fmt.Println("Success: ", testCommand._result)
 	}
 
+	if result := testCommand.ExecWithContext(ctx, testConf, testUser, "apply", testManifest, "test-manifest"); result != nil {
+		fmt.Println("Error: ", testCommand._error)
+	} else {
+		fmt.Println("Success: ", testCommand._result)
+	}
+
+	if result := testCommand.ExecWithContext(ctx, testConf, testUser, "get", testManifest, "test-manifest"); result != nil {
+		fmt.Println("Error: ", testCommand._error)
+	} else {
+		fmt.Println("Success: ", testCommand._result)
+	}
+
+	if result := testCommand.ExecWithContext(ctx, testConf, testUser, "list", testManifest, "test-manifest"); result != nil {
+		fmt.Println("Error: ", testCommand._error)
+	} else {
+		fmt.Println("List Success: ", testCommand._result)
+	}
+
+	if result := testCommand.ExecWithContext(ctx, testConf, testUser, "delete", testManifest, "test-manifest"); result != nil {
+		fmt.Println("Error: ", testCommand._error)
+	} else {
+		fmt.Println("Success: ", testCommand._result)
+	}
 }

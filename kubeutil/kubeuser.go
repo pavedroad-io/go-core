@@ -1,8 +1,8 @@
 package kubeutil
 
 import (
+	"fmt"
 	"reflect"
-	"strings"
 )
 
 type Label struct {
@@ -52,8 +52,8 @@ func (ku *KubeUser) GenerateLables() []Label {
 		fieldValue := v.Field(i)
 		fieldType := v.Type().Field(i)
 		fieldName := fieldType.Name
+		l.Value = fmt.Sprintf("%v", fieldValue.Interface())
 		l.Key = string(fieldName)
-		l.Value = strings.ToLower(fieldValue.String())
 		labels = append(labels, l)
 	}
 	return labels

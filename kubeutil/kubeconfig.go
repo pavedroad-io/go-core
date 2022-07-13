@@ -7,7 +7,9 @@ import (
 )
 
 var _kinds = []string{"KubeConfig"}
+
 var _versions = []string{"eventorchestrator/v1alpha1"}
+
 var _resources = []string{"deployment", "service",
 	"ingress", "secret", "configmap", "persistentvolume", "persistentvolumeclaim", "namespace", "Secret", "EventSource", "Sensor", "Workflow"}
 
