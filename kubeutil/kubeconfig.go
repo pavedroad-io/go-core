@@ -30,8 +30,8 @@ type KubeConfig struct {
 	ManifestDirectory string `json:"manifestDirectory"`
 }
 
-func (k *KubeConfig) New(conf KubeConfig) error {
-	fmt.Println("new conf: ", conf)
+func (k *KubeConfig) New() error {
+	fmt.Println("new conf: ", k)
 	if !k.SupportedVersion(k.ApiVersion) {
 		return errors.New("Unsupported api version: " + k.ApiVersion)
 	}
