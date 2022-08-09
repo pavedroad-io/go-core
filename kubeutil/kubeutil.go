@@ -60,6 +60,7 @@ func (k *KubeUtil) ExecWithContext(
 
 	fmt.Println("CTX: ", ctx)
 	k._ctx = ctx
+	k._config = conf
 	if validConf := k._config.New(*conf); validConf != nil {
 		return k.respondWithError("Bad config", validConf)
 	}
