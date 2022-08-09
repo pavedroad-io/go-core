@@ -30,31 +30,32 @@ type KubeConfig struct {
 }
 
 func (k *KubeConfig) New(conf KubeConfig) error {
-	if !k.SupportedVersion(conf.ApiVersion) {
-		return errors.New("Unsupported api version: " + conf.ApiVersion)
+	*k = conf
+	if !k.SupportedVersion(k.ApiVersion) {
+		return errors.New("Unsupported api version: " + k.ApiVersion)
 	}
-	k.ApiVersion = conf.ApiVersion
+	k.ApiVersion = k.ApiVersion
 
-	if !k.SupportedKind(conf.Kind) {
-		return errors.New("Unsupported kind: " + conf.Kind)
+	if !k.SupportedKind(k.Kind) {
+		return errors.New("Unsupported kind: " + k.Kind)
 	}
-	k.Kind = conf.Kind
+	k.Kind = k.Kind
 
-	if !k.ValidContext(conf.Kubectx) {
-		return errors.New("Unsupported kubectx: " + conf.Kubectx)
+	if !k.ValidContext(k.Kubectx) {
+		return errors.New("Unsupported kubectx: " + k.Kubectx)
 	}
 
-	mderror := k.ValidManifestDirectory(conf.ManifestDirectory)
+	mderror := k.ValidManifestDirectory(k.ManifestDirectory)
 	if mderror != nil {
 		return mderror
 	}
-	k.ManifestDirectory = conf.ManifestDirectory
+	k.ManifestDirectory = k.ManifestDirectory
 
-	if conf.Name == "" {
-		return errors.New("conf.Name cannot be empty")
+	if k.Name == "" {
+		return errors.New("k.Name cannot be empty")
 	}
-	k.Name = conf.Name
-	k.Namespace = conf.Namespace
+	k.Name = k.Name
+	k.Namespace = k.Namespace
 
 	return nil
 }

@@ -58,6 +58,8 @@ func (k *KubeUtil) ExecWithContext(
 	manifest []byte,
 	filename string) error {
 
+	fmt.Println("CTX: ", ctx)
+	fmt.Println("CONF: ", conf)
 	k._ctx = ctx
 	if validConf := k._config.New(*conf); validConf != nil {
 		return k.respondWithError("Bad config", validConf)
