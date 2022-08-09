@@ -2,6 +2,7 @@ package kubeutil
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 )
@@ -30,7 +31,9 @@ type KubeConfig struct {
 }
 
 func (k *KubeConfig) New(conf KubeConfig) error {
+	fmt.Println("new conf: ", conf)
 	*k = conf
+	fmt.Println("new k: ", k)
 	if !k.SupportedVersion(k.ApiVersion) {
 		return errors.New("Unsupported api version: " + k.ApiVersion)
 	}
