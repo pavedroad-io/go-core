@@ -59,11 +59,11 @@ func (k *KubeUtil) ExecWithContext(
 	filename string) error {
 
 	fmt.Println("CTX: ", ctx)
-	fmt.Println("CONF: ", conf)
 	k._ctx = ctx
 	if validConf := k._config.New(*conf); validConf != nil {
 		return k.respondWithError("Bad config", validConf)
 	}
+	fmt.Println("Init: ", conf)
 
 	if err := k.init(user, conf, cmd, manifest, filename); err != nil {
 		return k.respondWithError("Failed to initialize", err)
