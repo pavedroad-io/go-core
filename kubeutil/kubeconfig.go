@@ -2,7 +2,6 @@ package kubeutil
 
 import (
 	"errors"
-	"fmt"
 	"strconv"
 	"strings"
 )
@@ -25,13 +24,13 @@ type KubeConfig struct {
 
 	Environment string `json:"environment"`
 
-	Name string `json:"name"`
+	Name string `json:"name"` // resource name
 
+	// ManifestDirectory = accountID/resourcetype
 	ManifestDirectory string `json:"manifestDirectory"`
 }
 
 func (k *KubeConfig) New() error {
-	fmt.Println("new conf: ", k)
 	if !k.SupportedVersion(k.ApiVersion) {
 		return errors.New("Unsupported api version: " + k.ApiVersion)
 	}

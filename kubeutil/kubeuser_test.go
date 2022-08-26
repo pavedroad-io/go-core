@@ -7,7 +7,7 @@ import (
 func TestLables(t *testing.T) {
 
 	testUser := KubeUser{
-		CustomerID:         1,
+		CustomerID:         "1",
 		UserID:             "test",
 		Kind:               "KubeUser",
 		AuthorizationToken: "#########",
@@ -15,7 +15,7 @@ func TestLables(t *testing.T) {
 	}
 
 	lables := testUser.GenerateLables()
-	if len(lables) != 5 {
-		t.Errorf("Expected 5 labels, got %d", len(lables))
+	if len(lables) != 4 {
+		t.Errorf("Expected 4 labels, got %d", len(lables))
 	}
 }

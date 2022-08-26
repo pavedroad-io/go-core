@@ -100,7 +100,7 @@ func TestKubeUtil_init(t *testing.T) {
 func TestExecWithContext(t *testing.T) {
 	var testCommand KubeUtil
 	testUser := KubeUser{
-		CustomerID:         1,
+		CustomerID:         "1",
 		UserID:             "test",
 		Kind:               "KubeUser",
 		AuthorizationToken: "1231321233133",
@@ -120,35 +120,35 @@ func TestExecWithContext(t *testing.T) {
 
 	ctx := context.Background()
 
-	testCommand.init(testUser, testConf, "create", testManifest, "test-manifest")
+	//testCommand.init(testUser, testConf, "create", testManifest)
 
-	if result := testCommand.ExecWithContext(ctx, testConf, testUser, "create", testManifest, "test-manifest"); result != nil {
+	if body, err := testCommand.ExecWithContext(ctx, testConf, testUser, "create", testManifest); err != nil {
 		fmt.Println("Error: ", testCommand._error)
 	} else {
-		fmt.Println("Success: ", testCommand._result)
+		fmt.Printf("Success: err=%v\npayload=\n%v\n", err, string(body))
 	}
 
-	if result := testCommand.ExecWithContext(ctx, testConf, testUser, "apply", testManifest, "test-manifest"); result != nil {
+	if body, err := testCommand.ExecWithContext(ctx, testConf, testUser, "apply", testManifest); err != nil {
 		fmt.Println("Error: ", testCommand._error)
 	} else {
-		fmt.Println("Success: ", testCommand._result)
+		fmt.Printf("Success: err=%v\npayload=\n%v\n", err, string(body))
 	}
 
-	if result := testCommand.ExecWithContext(ctx, testConf, testUser, "get", testManifest, "test-manifest"); result != nil {
+	if body, err := testCommand.ExecWithContext(ctx, testConf, testUser, "get", testManifest); err != nil {
 		fmt.Println("Error: ", testCommand._error)
 	} else {
-		fmt.Println("Success: ", testCommand._result)
+		fmt.Printf("Success: err=%v\npayload=\n%v\n", err, string(body))
 	}
 
-	if result := testCommand.ExecWithContext(ctx, testConf, testUser, "list", testManifest, "test-manifest"); result != nil {
+	if body, err := testCommand.ExecWithContext(ctx, testConf, testUser, "list", testManifest); err != nil {
 		fmt.Println("Error: ", testCommand._error)
 	} else {
-		fmt.Println("List Success: ", testCommand._result)
+		fmt.Printf("Success: err=%v\npayload=\n%v\n", err, string(body))
 	}
 
-	if result := testCommand.ExecWithContext(ctx, testConf, testUser, "delete", testManifest, "test-manifest"); result != nil {
+	if body, err := testCommand.ExecWithContext(ctx, testConf, testUser, "delete", testManifest); err != nil {
 		fmt.Println("Error: ", testCommand._error)
 	} else {
-		fmt.Println("Success: ", testCommand._result)
+		fmt.Printf("Success: err=%v\npayload=\n%v\n", err, string(body))
 	}
 }

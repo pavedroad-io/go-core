@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    AuthorizationToken: "1231321233133"
+    CustomerID: "1"
+    ReferenceID: "123"
+    UserID: test
+  name: test-deployment
+  namespace: argo-events
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-deployment
+  template:
+    metadata:
+      labels:
+        app: test-deployment
+    spec:
+      containers:
+      - image: test-image
+        name: test-container
+        ports:
+        - containerPort: 8080

@@ -3,6 +3,7 @@ package kubeutil
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -50,35 +51,38 @@ type KubeUtil struct {
 	_additionalLabels []Label
 }
 
+func (k *KubeUtil) getNameFromManifest() string {
+	k._fileName = k._manifest["metadata"].(map[interface{}]interface{})["name"].(string)
+	return k._fileName
+}
+
+// Return response and error
 func (k *KubeUtil) ExecWithContext(
 	ctx context.Context,
 	conf *KubeConfig,
 	user KubeUser,
 	cmd string,
-	manifest []byte,
-	filename string) error {
+	manifest []byte) (body []byte, err error) {
+	k.init(user, conf, cmd, manifest)
 
 	k._ctx = ctx
 	k._config = conf
-	fmt.Println("_config: ", k._config)
 	if validConf := k._config.New(); validConf != nil {
-		return k.respondWithError("Bad config", validConf)
+		return nil, k.respondWithError("Bad config", validConf)
 	}
-	fmt.Println("Init: ", conf)
 
-	if err := k.init(user, conf, cmd, manifest, filename); err != nil {
-		return k.respondWithError("Failed to initialize", err)
-	}
+	k.getNameFromManifest()
 
 	if err := k.checkAndSave(); err != nil {
-		return k.respondWithError("checkAndSave", err)
+		return nil, k.respondWithError("checkAndSave", err)
 	}
 
-	if err := k.execute(); err != nil {
-		return k.respondWithError("execute", err)
+	body, err = k.execute()
+	if err != nil {
+		return nil, k.respondWithError("execute", err)
 	}
 
-	return (nil)
+	return body, nil
 }
 
 func (k *KubeUtil) buildCommandOptions(cmd []string) []string {
@@ -129,24 +133,24 @@ func (k *KubeUtil) buildCommandOptions(cmd []string) []string {
 	return cmd
 }
 
-func (k *KubeUtil) execute() error {
+func (k *KubeUtil) execute() ([]byte, error) {
 	var kubecmd = []string{}
 	kubecmd = k.buildCommandOptions(kubecmd)
 
 	debug := "kubectl " + strings.Join(kubecmd, " ")
-	fmt.Println(debug)
+	log.Println("kubectl: ", debug)
 	data, err := exec.Command("kubectl", kubecmd...).CombinedOutput()
 	if err != nil {
 		k._error = string(data)
-		return err
+		return nil, err
 	}
 	k._result = string(data)
-	return nil
+	return data, nil
 }
 
 func (k *KubeUtil) respondWithError(where string, err error) error {
 	k._endTime = time.Now()
-	fmt.Println(where, " : ", k._command, "failed in", k._endTime.Sub(k._startTime).String())
+	log.Println(where, " : ", k._command, "failed in", k._endTime.Sub(k._startTime).String())
 	return err
 }
 
@@ -162,13 +166,18 @@ func (k *KubeUtil) checkAndSave() error {
 	// Save the manifest
 	k._location = filepath.Join(saveLocation, k._fileName+".yaml")
 
+	man, err := yaml.Marshal(k._manifest)
+	if err != nil {
+		return err
+	}
+
 	if _, err := os.Stat(k._location); os.IsNotExist(err) {
 		f, err := os.Create(k._location)
 		if err != nil {
 			return err
 		}
 		defer f.Close()
-		if _, err := f.Write(k._manifestRaw); err != nil {
+		if _, err := f.Write(man); err != nil {
 			return err
 		}
 	} else {
@@ -177,7 +186,7 @@ func (k *KubeUtil) checkAndSave() error {
 			return err
 		}
 		defer f.Close()
-		if _, err := f.Write(k._manifestRaw); err != nil {
+		if _, err := f.Write(man); err != nil {
 			return err
 		}
 	}
@@ -185,11 +194,10 @@ func (k *KubeUtil) checkAndSave() error {
 	return nil
 }
 
-func (k *KubeUtil) init(user KubeUser, conf *KubeConfig, cmd string, manifest []byte, filename string) error {
+func (k *KubeUtil) init(user KubeUser, conf *KubeConfig, cmd string, manifest []byte) error {
 	k._startTime = time.Now()
 	k._command = cmd
 	k._manifestRaw = manifest
-	k._fileName = filename
 	k._manifest = make(map[string]interface{})
 	k._user = user
 	k._config = conf
@@ -198,11 +206,10 @@ func (k *KubeUtil) init(user KubeUser, conf *KubeConfig, cmd string, manifest []
 	// Parse the manifest
 	err := yaml.Unmarshal([]byte(k._manifestRaw), &k._manifest)
 	if err != nil {
+		log.Println("yaml failed to unmarsharl")
 		k._error = err.Error()
 		return err
 	}
-
-	k.LabelManifest()
 
 	data, err := yaml.Marshal(&k._manifest)
 
@@ -213,17 +220,18 @@ func (k *KubeUtil) init(user KubeUser, conf *KubeConfig, cmd string, manifest []
 		k._manifestRaw = data
 	}
 
+	k.LabelManifest()
+
 	k._result = ""
 	k._error = ""
 	return nil
 }
 
 func (k *KubeUtil) LabelManifest() {
-	// Add lbels to the manifest if missing
+	// Add labels to the manifest if missing
 	_, ok := k._manifest["metadata"].(map[interface{}]interface{})["labels"]
 	if !ok {
 		k._manifest["metadata"].(map[interface{}]interface{})["labels"] = make(map[string]string)
-
 	}
 
 	for _, v := range k._additionalLabels {

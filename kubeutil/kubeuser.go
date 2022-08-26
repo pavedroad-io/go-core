@@ -14,7 +14,7 @@ type Label struct {
 //  Is used to label manifests and authenticate requests
 type KubeUser struct {
 	// CustomerID - required
-	CustomerID int
+	CustomerID string
 
 	// UserID requesting sync
 	UserID string
@@ -29,7 +29,7 @@ type KubeUser struct {
 	ReferenceID string
 }
 
-func (ku *KubeUser) New(customer int, user, id string) bool {
+func (ku *KubeUser) New(customer, user, id string) bool {
 	ku.CustomerID = customer
 	ku.UserID = user
 	ku.Kind = "KubeUser"
@@ -39,7 +39,7 @@ func (ku *KubeUser) New(customer int, user, id string) bool {
 }
 
 func (ku *KubeUser) IsValid() bool {
-	return ku.CustomerID != 0 && ku.Kind != ""
+	return ku.CustomerID != "" && ku.Kind != ""
 }
 
 func (ku *KubeUser) GenerateLables() []Label {
@@ -54,6 +54,9 @@ func (ku *KubeUser) GenerateLables() []Label {
 		fieldName := fieldType.Name
 		l.Value = fmt.Sprintf("%v", fieldValue.Interface())
 		l.Key = string(fieldName)
+		if l.Key == "Kind" {
+			continue
+		}
 		labels = append(labels, l)
 	}
 	return labels
