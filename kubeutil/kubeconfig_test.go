@@ -15,7 +15,7 @@ func TestGoodConfig(t *testing.T) {
 		ManifestDirectory: "0001/EventSource",
 	}
 
-	if err := goodConfig.New(goodConfig); err != nil {
+	if err := goodConfig.New(); err != nil {
 		t.Errorf("Error creating good config: %v", err)
 	}
 }
@@ -31,7 +31,7 @@ func TestBadConfig(t *testing.T) {
 		ManifestDirectory: "/xxxxx/none",
 	}
 
-	if err := badConfig.New(badConfig); err == nil {
+	if err := badConfig.New(); err == nil {
 		t.Errorf("Bad config sould error: %v", err)
 	}
 }

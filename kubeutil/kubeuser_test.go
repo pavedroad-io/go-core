@@ -7,7 +7,7 @@ import (
 func TestLables(t *testing.T) {
 
 	testUser := KubeUser{
-		CustomerID:         1,
+		CustomerID:         "1",
 		UserID:             "test",
 		Kind:               "KubeUser",
 		AuthorizationToken: "#########",
