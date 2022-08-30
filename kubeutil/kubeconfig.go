@@ -51,9 +51,6 @@ func (k *KubeConfig) New() error {
 	}
 	k.ManifestDirectory = k.ManifestDirectory
 
-	if k.Name == "" {
-		return errors.New("k.Name cannot be empty")
-	}
 	k.Name = k.Name
 	k.Namespace = k.Namespace
 
