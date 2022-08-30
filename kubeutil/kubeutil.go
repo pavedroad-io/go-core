@@ -64,7 +64,6 @@ func (k *KubeUtil) ExecWithContext(
 	cmd string,
 	manifest []byte) (body []byte, err error) {
 	k.init(user, conf, cmd, manifest)
-
 	k._ctx = ctx
 	k._config = conf
 	if validConf := k._config.New(); validConf != nil {
