@@ -1,4 +1,4 @@
-// Inspired by on github.com/amitrai48/logger/logrus.go
+// Inspired by github.com/amitrai48/logger/logrus.go
 
 package logger
 
